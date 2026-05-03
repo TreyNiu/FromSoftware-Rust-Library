@@ -25,6 +25,12 @@ Applies and removes an speffect based on keypresses (O to apply and P to remove)
 </summary>
 </details>
 
+## Hot randomizer
+Runtime randomizer playground. It currently randomizes the active left/right weapon slot with F1/F2,
+and is structured so spell, armor, or other parameter randomizers can be added as separate modules.
+
+[Code](2-hot-randomizer/src/lib.rs).
+
 ## Spawn asset (AEG)
 Spawns bloodied poop at twice the scale at the players location whenever H is pressed.
 
