@@ -497,7 +497,7 @@ pub fn restore_weapon_randomizer_backup(backup: &WeaponRandomizerBackup) {
 }
 
 fn restore_weapon_param_rows(backup: &WeaponRandomizerBackup) {
-    let Ok(params) = (unsafe { SoloParamRepository::instance() }) else {
+    let Ok(params) = (unsafe { SoloParamRepository::instance_mut() }) else {
         log_event("restore skipped: SoloParamRepository::instance failed");
         return;
     };
@@ -517,7 +517,7 @@ fn restore_weapon_param_rows(backup: &WeaponRandomizerBackup) {
 }
 
 fn restore_equipped_slot_items(backup: &WeaponRandomizerBackup) {
-    let Ok(game_data) = (unsafe { GameDataMan::instance() }) else {
+    let Ok(game_data) = (unsafe { GameDataMan::instance_mut() }) else {
         log_event("restore slot items skipped: GameDataMan::instance failed");
         return;
     };
@@ -717,7 +717,7 @@ fn apply_randomized_weapon(
     ash: Option<AshCandidate>,
     sword_art_id: i32,
 ) -> bool {
-    let Ok(game_data) = (unsafe { GameDataMan::instance() }) else {
+    let Ok(game_data) = (unsafe { GameDataMan::instance_mut() }) else {
         log_event("apply failed: GameDataMan::instance failed");
         return false;
     };
@@ -814,7 +814,7 @@ fn sync_equipped_inventory_item_id(
 }
 
 fn sync_weapon_gaitem_item_id(weapon_handle: GaitemHandle, item_id: ItemId) {
-    let Ok(gaitems) = (unsafe { CSGaitemImp::instance() }) else {
+    let Ok(gaitems) = (unsafe { CSGaitemImp::instance_mut() }) else {
         log_event("sync weapon gaitem skipped: CSGaitemImp::instance failed");
         return;
     };
@@ -848,7 +848,7 @@ fn replace_equipped_weapon_param(
     icon_id: u16,
     sword_art_id: i32,
 ) {
-    let Ok(params) = (unsafe { SoloParamRepository::instance() }) else {
+    let Ok(params) = (unsafe { SoloParamRepository::instance_mut() }) else {
         log_event("param replacement skipped: SoloParamRepository::instance failed");
         return;
     };
@@ -933,7 +933,7 @@ fn patch_equipped_gaitem_ash(
         "gaitem slot lookup: slot={slot:?}, chr_asm_index={chr_asm_index}, weapon_handle={weapon_handle}"
     ));
 
-    let Ok(gaitems) = (unsafe { CSGaitemImp::instance() }) else {
+    let Ok(gaitems) = (unsafe { CSGaitemImp::instance_mut() }) else {
         log_event("gaitem ash patch skipped: CSGaitemImp::instance failed");
         return;
     };

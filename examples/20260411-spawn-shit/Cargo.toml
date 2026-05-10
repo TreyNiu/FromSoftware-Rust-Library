@@ -1,0 +1,15 @@
+[package]
+name = "spawn-shit"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+fromsoftware-shared.workspace = true
+eldenring.workspace = true
+rand = "0.9"
+
+[lib]
+crate-type = ["cdylib"]

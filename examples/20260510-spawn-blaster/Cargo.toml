@@ -1,5 +1,5 @@
 [package]
-name = "spawn-items"
+name = "spawn-blaster"
 version.workspace = true
 edition.workspace = true
 repository.workspace = true

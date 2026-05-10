@@ -1372,7 +1372,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "spawn-items"
+name = "spawn-blaster"
+version = "0.13.0"
+dependencies = [
+ "eldenring",
+ "fromsoftware-shared 0.13.0",
+ "rand",
+]
+
+[[package]]
+name = "spawn-shit"
 version = "0.13.0"
 dependencies = [
  "eldenring",

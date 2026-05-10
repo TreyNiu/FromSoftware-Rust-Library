@@ -6,6 +6,7 @@ use eldenring::{
         WorldChrMan,
     },
     fd4::FD4TaskData,
+    position::BlockPosition,
     util::system::wait_for_system_init,
 };
 use fromsoftware_shared::{FromStatic, program::Program, task::*};
@@ -53,35 +54,35 @@ pub unsafe extern "C" fn DllMain(_hmodule: usize, reason: u32) -> bool {
                     return;
                 }
 
-                let Some(block_geom_data) = unsafe { CSWorldGeomMan::instance() }
+                let Some(block_geom_data) = unsafe { CSWorldGeomMan::instance_mut() }
                     .ok()
-                    .and_then(|wgm: &mut CSWorldGeomMan| {
-                        wgm.geom_block_data_by_id_mut(&player.chr_ins.block_id())
-                    })
+                    .and_then(|wgm| wgm.geom_block_data_by_id_mut(&player.chr_ins.block_id()))
                 else {
                     return;
                 };
 
+                let asset_id = "AEG217_063";
                 let mut rng = rand::rng();
-                let scale_x = rng.random_range(0.3..=2.0);
-                let scale_y = rng.random_range(0.3..=2.0);
-                let scale_z = rng.random_range(0.3..=2.0);
-                let asset_id = if rng.random_bool(0.8) {
-                    "AEG099_830"
-                } else {
-                    "AEG099_831"
+
+                let offset_x = rng.random_range(1.0..=2.0);
+                let offset_z = rng.random_range(1.0..=2.0);
+                let target_position = BlockPosition {
+                    x: (player.block_position.x + offset_x),
+                    y: (player.block_position.y),
+                    z: (player.block_position.z + offset_z),
+                    yaw: (player.block_position.yaw),
                 };
 
                 block_geom_data.spawn_geometry(
                     asset_id,
                     &GeometrySpawnParameters {
-                        position: player.block_position,
+                        position: target_position,
                         rot_x: 0.0,
                         rot_y: 0.0,
                         rot_z: 0.0,
-                        scale_x,
-                        scale_y,
-                        scale_z,
+                        scale_x: 1.0,
+                        scale_y: 1.0,
+                        scale_z: 1.0,
                     },
                 );
 
