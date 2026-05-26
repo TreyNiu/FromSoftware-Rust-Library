@@ -14,7 +14,7 @@ use eldenring::{
     param::{EQUIP_PARAM_GEM_ST, EQUIP_PARAM_WEAPON_ST},
 };
 use fromsoftware_shared::{FromStatic, Superclass};
-use rand::{Rng, prelude::IndexedRandom};
+use rand::{Rng, prelude::IndexedRandom, seq::SliceRandom};
 
 use crate::{
     config::WeaponRandomizerConfig,
@@ -37,6 +37,7 @@ struct WeaponHandState {
     enabled: bool,
     last_randomized: Instant,
     backup: Option<WeaponRandomizerBackup>,
+    weapon_bag: Vec<WeaponCandidate>,
 }
 
 impl WeaponRandomizer {
@@ -68,6 +69,8 @@ impl WeaponRandomizer {
         if !config.allow_right_hand {
             set_hand_enabled(&mut self.right, false, &config);
         }
+        self.left.weapon_bag.clear();
+        self.right.weapon_bag.clear();
         self.config = config;
     }
 
@@ -107,6 +110,7 @@ impl WeaponHandState {
             } else {
                 None
             },
+            weapon_bag: Vec::new(),
         }
     }
 }
@@ -133,6 +137,7 @@ fn set_hand_enabled(
 
     if hand_state.enabled {
         hand_state.backup = capture_weapon_randomizer_backup(hand_state.hand);
+        hand_state.weapon_bag.clear();
         log_event(format!(
             "captured {:?} weapon backup: slots={}, param_rows={}",
             hand_state.hand,
@@ -156,6 +161,7 @@ fn set_hand_enabled(
             restore_weapon_randomizer_backup(backup);
         }
         hand_state.backup = None;
+        hand_state.weapon_bag.clear();
     }
 }
 
@@ -169,7 +175,7 @@ fn tick_hand(hand_state: &mut WeaponHandState, config: &WeaponRandomizerConfig) 
         hand_state.backup = capture_weapon_randomizer_backup(hand_state.hand);
     }
 
-    let Some(backup) = hand_state.backup.as_ref() else {
+    let Some(_backup) = hand_state.backup.as_ref() else {
         log_event(format!(
             "skip: {:?} hand weapon randomizer backup unavailable",
             hand_state.hand
@@ -178,7 +184,7 @@ fn tick_hand(hand_state: &mut WeaponHandState, config: &WeaponRandomizerConfig) 
         return;
     };
 
-    if !randomize_selected_weapon(hand_state.hand, backup, config) {
+    if !randomize_selected_weapon(hand_state, config) {
         log_event(format!(
             "{:?} hand randomization tick did not apply",
             hand_state.hand
@@ -305,11 +311,11 @@ impl WeaponSlot {
     }
 }
 
-pub fn randomize_selected_weapon(
-    hand: Hand,
-    backup: &WeaponRandomizerBackup,
+fn randomize_selected_weapon(
+    hand_state: &mut WeaponHandState,
     config: &WeaponRandomizerConfig,
 ) -> bool {
+    let hand = hand_state.hand;
     let Some((slot, player_level)) = selected_weapon_slot_and_level(hand) else {
         log_event(format!(
             "skip: selected {:?} weapon slot or player level unavailable",
@@ -324,7 +330,11 @@ pub fn randomize_selected_weapon(
         return false;
     }
 
-    let Some(target_param_row) = backup.target_row_for_slot(slot) else {
+    let Some(target_param_row) = hand_state
+        .backup
+        .as_ref()
+        .and_then(|backup| backup.target_row_for_slot(slot))
+    else {
         log_event(format!("skip: no backup row found for slot={slot:?}"));
         return false;
     };
@@ -334,20 +344,11 @@ pub fn randomize_selected_weapon(
         return false;
     };
 
-    let weapons = if config.debug_fixed_pool {
-        collect_debug_weapon_candidates(solo_params, config.include_unique_weapons)
-    } else {
-        collect_weapon_candidates(solo_params, config)
-    };
-    if weapons.is_empty() {
+    let mut rng = rand::rng();
+    let Some(weapon) = next_weapon_candidate(hand_state, solo_params, config, &mut rng) else {
         log_event("skip: no weapon candidates");
         return false;
-    }
-
-    let mut rng = rand::rng();
-    let weapon = *weapons
-        .choose(&mut rng)
-        .expect("candidate list is not empty");
+    };
     let ash = choose_ash_candidate(solo_params, weapon, config, &mut rng);
 
     // ER 的武器 param ID 会把强化等级和质变编码进去；这里只选择真实存在的派生 row。
@@ -402,6 +403,25 @@ pub fn randomize_selected_weapon(
     }
 
     applied
+}
+
+fn next_weapon_candidate(
+    hand_state: &mut WeaponHandState,
+    params: &SoloParamRepository,
+    config: &WeaponRandomizerConfig,
+    rng: &mut impl Rng,
+) -> Option<WeaponCandidate> {
+    if hand_state.weapon_bag.is_empty() {
+        hand_state.weapon_bag = if config.debug_fixed_pool {
+            collect_debug_weapon_candidates(params, config.include_unique_weapons)
+        } else {
+            collect_weapon_candidates(params, config)
+        };
+
+        hand_state.weapon_bag.shuffle(rng);
+    }
+
+    hand_state.weapon_bag.pop()
 }
 
 fn choose_ash_candidate(
