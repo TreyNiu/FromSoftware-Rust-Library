@@ -9,6 +9,7 @@ publish = false
 [dependencies]
 fromsoftware-shared.workspace = true
 eldenring.workspace = true
+glam.workspace = true
 rand = "0.9"
 
 [lib]

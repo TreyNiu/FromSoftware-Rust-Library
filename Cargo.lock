@@ -1377,6 +1377,7 @@ version = "0.13.0"
 dependencies = [
  "eldenring",
  "fromsoftware-shared 0.13.0",
+ "glam",
  "rand",
 ]
 
