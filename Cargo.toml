@@ -57,7 +57,6 @@ vtable-rs = "0.1.4"
 bitfield = "0.19.2"
 encoding_rs = "0.8.35"
 libhotpatch = "1.1.0"
-cxx-stl = "4.4"
 toml = "1.0.3"
 num_enum = "0.7"
 
@@ -66,7 +65,7 @@ version = "1"
 features = ["derive"]
 
 [workspace.dependencies.windows]
-version = "0.54"
+version = "0.61"
 features = [
     "Win32_Foundation",
     "Win32_System_Kernel",

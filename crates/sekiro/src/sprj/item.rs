@@ -5,7 +5,7 @@ use pelite::pe64::Pe;
 use shared::{FromStatic, IncompleteArrayField, InstanceResult, OwnedPtr, Program};
 
 use super::ItemId;
-use crate::{dlkr::DLAllocatorRef, rva, stl::Vector};
+use crate::{dlkr::DLAllocator, rva, stl::DLVector};
 
 #[repr(C)]
 // Source of name: RTTI
@@ -27,8 +27,8 @@ pub struct MapItemMan {
     _unk60: u64,
     _unk68: u64,
     _unk70: u64,
-    _unk78: Vector<u8>,
-    _unk98: Vector<u8>,
+    _unk78: DLVector<u8>,
+    _unk98: DLVector<u8>,
     pub map_item_drop_changer: OwnedPtr<CSMapItemDropChanger>,
     pub menu_handle: MenuHandle,
     _unkd8: [u8; 0x50],
@@ -36,7 +36,7 @@ pub struct MapItemMan {
     _unk130: u8,
     _unk134: u32,
     _unk138: u32,
-    _unk140: DLAllocatorRef,
+    _unk140: &'static DLAllocator,
     _unk148: u64,
     _unk150: u64,
     _unk158: u32,
@@ -107,8 +107,8 @@ impl MapItemMan {
 // Source of name: RTTI
 pub struct CSMapItemDropChanger {
     _vftable: usize,
-    _unk08: Vector<u8>,
-    _unk28: Vector<u8>,
+    _unk08: DLVector<u8>,
+    _unk28: DLVector<u8>,
     _unk48: u8,
     _unk4c: u32,
     _unk50: u32,

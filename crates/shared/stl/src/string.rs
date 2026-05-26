@@ -1,4 +1,4 @@
-use crate::allocator::Allocator;
+use crate::allocator::StlAllocator;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::mem::ManuallyDrop;
@@ -36,7 +36,7 @@ use std::ptr::NonNull;
 pub struct BasicString<C, A>
 where
     C: CodeUnit,
-    A: Allocator,
+    A: StlAllocator,
 {
     #[cfg(any(not(feature = "msvc2012"), feature = "msvc2015"))]
     pub allocator: A,
@@ -84,7 +84,7 @@ union StringBuffer<C: CodeUnit> {
 impl<C, A> BasicString<C, A>
 where
     C: CodeUnit,
-    A: Allocator,
+    A: StlAllocator,
 {
     /// Creates an empty string backed by `allocator`.
     ///
@@ -107,7 +107,7 @@ where
     /// slice does not fit in the SSO buffer.
     ///
     /// Equivalent to `std::basic_string<C>(ptr, len, allocator)`
-    pub fn from_units_in(chars: impl AsRef<[C]>, mut allocator: A) -> Self {
+    pub fn from_units_in(chars: impl AsRef<[C]>, allocator: A) -> Self {
         let chars = chars.as_ref();
         let len = chars.len();
 
@@ -304,7 +304,7 @@ where
 impl<C, A> BasicString<C, A>
 where
     C: CodeUnit + PartialEq,
-    A: Allocator,
+    A: StlAllocator,
 {
     /// Returns the index of the first occurrence of `needle`, or `None`.
     ///
@@ -453,7 +453,7 @@ where
     }
 }
 
-impl<A: Allocator> BasicString<u8, A> {
+impl<A: StlAllocator> BasicString<u8, A> {
     /// Returns a new string with leading and trailing ASCII whitespace removed.
     ///
     /// Same as [`str::trim`]
@@ -541,7 +541,7 @@ impl<A: Allocator> BasicString<u8, A> {
 impl<C, A> Drop for BasicString<C, A>
 where
     C: CodeUnit,
-    A: Allocator,
+    A: StlAllocator,
 {
     fn drop(&mut self) {
         if !self.is_sso() {
@@ -559,7 +559,7 @@ where
 impl<C, A, S> PartialEq<S> for BasicString<C, A>
 where
     C: CodeUnit + PartialEq,
-    A: Allocator,
+    A: StlAllocator,
     S: AsRef<[C]>,
 {
     #[inline]
@@ -571,14 +571,14 @@ where
 impl<C, A> Eq for BasicString<C, A>
 where
     C: CodeUnit + PartialEq,
-    A: Allocator,
+    A: StlAllocator,
 {
 }
 
 impl<C, A, S> PartialOrd<S> for BasicString<C, A>
 where
     C: CodeUnit + PartialEq + Ord,
-    A: Allocator,
+    A: StlAllocator,
     S: AsRef<[C]>,
 {
     #[inline]
@@ -590,7 +590,7 @@ where
 impl<C, A> Ord for BasicString<C, A>
 where
     C: CodeUnit + PartialEq + Ord,
-    A: Allocator,
+    A: StlAllocator,
 {
     #[inline]
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
@@ -603,14 +603,14 @@ where
 impl<C, A> Hash for BasicString<C, A>
 where
     C: CodeUnit + Hash,
-    A: Allocator,
+    A: StlAllocator,
 {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.as_code_units().hash(state);
     }
 }
 
-impl<A: Allocator> fmt::Debug for BasicString<u8, A> {
+impl<A: StlAllocator> fmt::Debug for BasicString<u8, A> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match std::str::from_utf8(self.as_code_units()) {
             Ok(s) => write!(f, "{s:?}"),
@@ -619,7 +619,7 @@ impl<A: Allocator> fmt::Debug for BasicString<u8, A> {
     }
 }
 
-impl<A: Allocator> fmt::Display for BasicString<u8, A> {
+impl<A: StlAllocator> fmt::Display for BasicString<u8, A> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match std::str::from_utf8(self.as_code_units()) {
             Ok(s) => f.write_str(s),
@@ -628,7 +628,7 @@ impl<A: Allocator> fmt::Display for BasicString<u8, A> {
     }
 }
 
-impl<A: Allocator> fmt::Debug for BasicString<u16, A> {
+impl<A: StlAllocator> fmt::Debug for BasicString<u16, A> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "L\"")?;
         for r in char::decode_utf16(self.as_code_units().iter().cloned()) {
@@ -648,7 +648,7 @@ impl<A: Allocator> fmt::Debug for BasicString<u16, A> {
 impl<C, A> AsRef<[C]> for BasicString<C, A>
 where
     C: CodeUnit,
-    A: Allocator,
+    A: StlAllocator,
 {
     #[inline]
     fn as_ref(&self) -> &[C] {
@@ -659,7 +659,7 @@ where
 impl<C, A> std::borrow::Borrow<[C]> for BasicString<C, A>
 where
     C: CodeUnit,
-    A: Allocator,
+    A: StlAllocator,
 {
     #[inline]
     fn borrow(&self) -> &[C] {

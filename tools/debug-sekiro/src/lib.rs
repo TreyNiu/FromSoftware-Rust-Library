@@ -74,6 +74,8 @@ impl ImguiRenderLoop for SekiroDebugGui {
         unsafe {
             let ctx = imgui_sys::igGetCurrentContext();
             forward_imgui_context_on_reload(ctx);
+            let blocker = InputBlocker::get_instance();
+            forward_input_blocker_on_reload(blocker)
         }
 
         // SAFETY: *do not* modify this function signature while the game is running.
@@ -85,6 +87,10 @@ impl ImguiRenderLoop for SekiroDebugGui {
 
 #[libhotpatch::hotpatch]
 unsafe fn render_live_reload(gui: &mut SekiroDebugGui, ui: &mut Ui) {
+    let io = ui.io();
+    let blocker = InputBlocker::get_instance();
+    blocker.block_from_io(io);
+
     ui.window("Sekiro Rust Bindings Debug")
         .position([30., 30.], Condition::FirstUseEver)
         .size(gui.size, Condition::FirstUseEver)
@@ -127,4 +133,12 @@ unsafe fn render_live_reload(gui: &mut SekiroDebugGui, ui: &mut Ui) {
 unsafe fn forward_imgui_context_on_reload(ctx: *mut imgui_sys::ImGuiContext) {
     static ONCE: Once = Once::new();
     ONCE.call_once(|| unsafe { imgui_sys::igSetCurrentContext(ctx) });
+}
+
+#[libhotpatch::hotpatch]
+unsafe fn forward_input_blocker_on_reload(blocker: &'static InputBlocker) {
+    static ONCE: Once = Once::new();
+    ONCE.call_once(|| {
+        InputBlocker::forward_instance(blocker);
+    });
 }

@@ -9,8 +9,8 @@ use shared::Program;
 use vtable_rs::VPtr;
 
 use crate::{
-    dlkr::DLAllocatorRef,
-    dltx::{DLString, DLStringEncodingError},
+    dlkr::DLAllocator,
+    dltx::{DLString, DLStringError},
     dlut::{DLReferenceCountObject, DLReferenceCountObjectVmt, DLReferencePointer},
     rva,
 };
@@ -27,9 +27,9 @@ pub struct EzStateSharedString {
 
 impl EzStateSharedString {
     pub fn from_str(
-        allocator: DLAllocatorRef,
-        str: &str,
-    ) -> Result<DLReferencePointer<Self>, DLStringEncodingError> {
+        allocator: &'static DLAllocator,
+        string: &str,
+    ) -> Result<DLReferencePointer<Self>, DLStringError> {
         let new = Self {
             vftable: unsafe {
                 transmute::<u64, VPtr<dyn DLReferenceCountObjectVmt, Self>>(
@@ -39,10 +39,10 @@ impl EzStateSharedString {
                 )
             },
             reference_count: AtomicU32::new(1),
-            string: DLString::from_str(allocator.clone(), str)?,
+            string: DLString::from_str(string, allocator)?,
         };
 
-        Ok(DLReferencePointer::new(allocator.clone(), new))
+        Ok(DLReferencePointer::new(allocator, new))
     }
 }
 

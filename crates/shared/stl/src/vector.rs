@@ -13,7 +13,7 @@ use std::ops::{Deref, DerefMut};
 /// [cppreference - `std::vector`]: https://en.cppreference.com/w/cpp/container/vector.html
 /// [MSVC STL source - `vector`]: https://github.com/microsoft/STL/blob/main/stl/inc/vector
 /// [Raymond Chen's breakdown of `std::vector`]: https://devblogs.microsoft.com/oldnewthing/20230802-00/?p=108524
-pub struct Vector<T, A: Allocator> {
+pub struct Vector<T, A: StlAllocator> {
     #[cfg(any(not(feature = "msvc2012"), feature = "msvc2015"))]
     pub allocator: A,
     first: *mut T,
@@ -23,9 +23,12 @@ pub struct Vector<T, A: Allocator> {
     pub allocator: A,
 }
 
-impl<T, A: Allocator> Vector<T, A> {
+impl<T, A: StlAllocator> Vector<T, A> {
     #[inline]
     pub fn capacity(&self) -> usize {
+        if self.first.is_null() {
+            return 0;
+        }
         unsafe { self.end.offset_from(self.first) as usize }
     }
 
@@ -42,7 +45,7 @@ impl<T, A: Allocator> Vector<T, A> {
     }
 
     /// Creates a vector from a slice, copying all elements into it
-    pub fn from_slice_in(items: &[T], mut allocator: A) -> Self
+    pub fn from_slice_in(items: &[T], allocator: A) -> Self
     where
         T: Copy,
     {
@@ -129,6 +132,17 @@ impl<T, A: Allocator> Vector<T, A> {
         (!self.is_empty()).then(|| self.remove(0))
     }
 
+    pub fn clear(&mut self) {
+        if self.capacity() == 0 {
+            return;
+        }
+        // Drop every live element in [first, last) before releasing the buffer
+        unsafe {
+            std::ptr::drop_in_place(std::ptr::slice_from_raw_parts_mut(self.first, self.len()));
+        }
+        self.last = self.first;
+    }
+
     /// MSVC growth policy: 1.5x capacity
     fn grow(&mut self) {
         let old_len = self.len();
@@ -150,7 +164,7 @@ impl<T, A: Allocator> Vector<T, A> {
     }
 }
 
-impl<T, A: Allocator> Deref for Vector<T, A> {
+impl<T, A: StlAllocator> Deref for Vector<T, A> {
     type Target = [T];
     #[inline]
     fn deref(&self) -> &[T] {
@@ -164,7 +178,7 @@ impl<T, A: Allocator> Deref for Vector<T, A> {
     }
 }
 
-impl<T, A: Allocator> DerefMut for Vector<T, A> {
+impl<T, A: StlAllocator> DerefMut for Vector<T, A> {
     #[inline]
     fn deref_mut(&mut self) -> &mut [T] {
         if self.first.is_null() {
@@ -177,13 +191,9 @@ impl<T, A: Allocator> DerefMut for Vector<T, A> {
     }
 }
 
-impl<T, A: Allocator> Drop for Vector<T, A> {
+impl<T, A: StlAllocator> Drop for Vector<T, A> {
     fn drop(&mut self) {
-        // Drop every live element in [first, last) before releasing the buffer
-        unsafe {
-            std::ptr::drop_in_place(std::ptr::slice_from_raw_parts_mut(self.first, self.len()));
-        }
-
+        self.clear();
         // guard against empty vectors
         if self.capacity() > 0 {
             unsafe { self.allocator.deallocate_raw(self.first as _) };

@@ -1,12 +1,13 @@
-use std::{ptr::NonNull, string::FromUtf8Error};
+use std::ptr::NonNull;
 
 use crate::{
-    BasicVector, Vector,
+    DLVector,
     cs::{MultiplayRole, MultiplayType, SummonParamType},
     dltx::DLString,
     fd4::{FD4StepBase, FD4StepBaseInterface, FD4Time},
+    from_net::{FNString, FNVector},
     position::BlockPosition,
-    stl::DoublyLinkedList,
+    stl::DLList,
 };
 use shared::{OwnedPtr, StepperStates};
 
@@ -58,16 +59,16 @@ pub struct CSNetMan {
 pub struct CSNetBloodMessageDb {
     vftable: usize,
     // Contains all CSNetBloodMessageDbItem?
-    pub entries: DoublyLinkedList<OwnedPtr<CSNetBloodMessageDbItem>>,
+    pub entries: DLList<OwnedPtr<CSNetBloodMessageDbItem>>,
     unk20: usize,
     /// Seemingly contains message data for messages created by local user
-    pub created_data: DoublyLinkedList<usize>,
+    pub created_data: DLList<usize>,
     // Contains ???
-    unk40: DoublyLinkedList<usize>,
+    unk40: DLList<usize>,
     unk58: usize,
     blood_message_ins_man_1: usize,
     blood_message_ins_man_2: usize,
-    pub discovered_messages: DoublyLinkedList<OwnedPtr<OwnedPtr<CSNetBloodMessageDbItem>>>,
+    pub discovered_messages: DLList<OwnedPtr<OwnedPtr<CSNetBloodMessageDbItem>>>,
     unk88: [u8; 0xD0],
     /// Hosts any ongoing jobs for evaluations.
     evaluate_job: usize,
@@ -109,18 +110,18 @@ pub struct BreakInData {
     pub multiplay_role: MultiplayRole,
     pub has_password: bool,
     unk1e: u8,
-    pub join_data: BasicVector<u8>,
+    pub join_data: FNVector<u8>,
 }
 
 #[repr(C)]
 pub struct BreakInPointManager {
-    breakin_points: DoublyLinkedList<()>,
+    breakin_points: DLList<()>,
     unk18: [u8; 0x10],
 }
 
 #[repr(C)]
 pub struct BreakInAreaList {
-    pub areas: Vector<u32>,
+    pub areas: DLVector<u32>,
     pub count: u32,
 }
 
@@ -136,21 +137,15 @@ pub enum BreakInSearchState {
 #[repr(C)]
 pub struct BreakInTarget {
     pub player_id: u32,
-    pub external_id: BasicVector<u8>,
+    pub external_id: FNString,
     pub play_region: u32,
-}
-
-impl BreakInTarget {
-    pub fn external_id_str(&self) -> Result<String, FromUtf8Error> {
-        String::from_utf8(self.external_id.items().to_vec())
-    }
 }
 
 #[repr(C)]
 pub struct BreakInManager {
     pub multiplay_type: MultiplayType,
-    pub targets: BasicVector<BreakInTarget>,
-    unk20: BasicVector<()>,
+    pub targets: FNVector<BreakInTarget>,
+    unk20: FNVector<()>,
     /// Data from breakin push
     pub data: BreakInData,
     pub point_manager: BreakInPointManager,
@@ -363,11 +358,11 @@ pub struct CSQuickMatchContext {
     /// Spawn data for the local player.
     pub spawn_data: QuickmatchSpawnData,
     /// Vector of arenas available for quickmatch to randomly select from.
-    pub arena_list: BasicVector<QuickMatchArena>,
-    unk40: Vector<usize>,
-    unk60: Vector<usize>,
+    pub arena_list: FNVector<QuickMatchArena>,
+    unk40: DLVector<usize>,
+    unk60: DLVector<usize>,
     /// All quickmatch participants.
-    pub participants: DoublyLinkedList<QuickmatchParticipant>,
+    pub participants: DLList<QuickmatchParticipant>,
     unk98: u8,
     /// Seems to be indicative of why some QM lobby failed
     pub error_state: u8,

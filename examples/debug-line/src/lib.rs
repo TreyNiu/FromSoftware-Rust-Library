@@ -5,7 +5,7 @@ use eldenring::{
     fd4::FD4TaskData,
     position::PositionDelta,
 };
-use fromsoftware_shared::{F32Vector4, FromStatic, task::*};
+use fromsoftware_shared::{F32Vector4, FromStatic, SharedTaskImpExt};
 
 #[unsafe(no_mangle)]
 /// # Safety

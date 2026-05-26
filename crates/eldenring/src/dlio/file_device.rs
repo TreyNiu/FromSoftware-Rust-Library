@@ -7,9 +7,9 @@ use std::{
 use vtable_rs::VPtr;
 
 use crate::{
-    Vector,
+    DLVector,
     dlio::DLIOResult,
-    dlkr::{DLAllocatorBase, DLPlainLightMutex},
+    dlkr::{DLAllocator, DLPlainLightMutex},
     dltx::DLString,
     dlut::DLDateTime,
 };
@@ -45,7 +45,7 @@ pub trait DLFileDeviceVmt {
         path_dlstring: &DLString,
         path_u16: *const u16,
         operator_container: &mut DLFileOperatorContainer,
-        allocator: &mut DLAllocatorBase,
+        allocator: &mut DLAllocator,
         is_temp_file: bool,
     ) -> *const DLFileOperatorBase;
 
@@ -243,7 +243,7 @@ impl Display for DLFileOperatorIOState {
 pub struct DLFileOperatorBase<T: DLFileOperatorVmt = AdapterFileOperator<Cursor<Vec<u8>>>> {
     pub vftable: VPtr<dyn DLFileOperatorVmt, T>,
     /// Allocator passed to constructor, used for all memory operations
-    pub allocator: NonNull<DLAllocatorBase>,
+    pub allocator: &'static DLAllocator,
     /// Result of latest operation involving this file operator
     pub result: DLIOResult,
     // _pad14: u32,
@@ -267,12 +267,11 @@ where
 {
     pub fn new(
         vftable: VPtr<dyn DLFileOperatorVmt, T>,
-        allocator: &DLAllocatorBase,
+        allocator: &'static DLAllocator,
         path: &DLString,
         operator_container: &DLFileOperatorContainer,
         file_device: &DLFileDeviceBase,
     ) -> Self {
-        let allocator = NonNull::from(allocator);
         Self {
             vftable,
             allocator,
@@ -280,7 +279,7 @@ where
             owning_operator_container: NonNull::from(operator_container),
             io_state: DLFileOperatorIOState::default(),
             owning_file_device: NonNull::from(file_device),
-            path: DLString::copy(allocator.into(), path).expect("Failed to copy DLString"),
+            path: DLString::transcode_from(path, allocator).expect("Failed to copy DLString"),
         }
     }
 }
@@ -304,7 +303,7 @@ pub struct BndEntry {
 
 #[repr(C)]
 pub struct DLFileOperatorContainer {
-    allocator: NonNull<DLAllocatorBase>,
+    allocator: &'static DLAllocator,
     read_file_operator: OwnedPtr<DLFileOperatorBase>,
     write_file_operator: OwnedPtr<DLFileOperatorBase>,
     flags: u32,
@@ -312,12 +311,12 @@ pub struct DLFileOperatorContainer {
 
 #[repr(C)]
 pub struct DLFileDeviceManager {
-    pub devices: Vector<NonNull<DLFileDeviceBase>>,
-    pub service_providers: Vector<NonNull<DLFileDeviceImageSPIBase>>,
+    pub devices: DLVector<NonNull<DLFileDeviceBase>>,
+    pub service_providers: DLVector<NonNull<DLFileDeviceImageSPIBase>>,
     pub msvc_file_device: OwnedPtr<DLFileDeviceBase>,
-    pub virtual_roots: Vector<[DLString; 2]>,
-    pub bnd3_files: Vector<BndEntry>,
-    pub bnd4_files: Vector<BndEntry>,
+    pub virtual_roots: DLVector<[DLString; 2]>,
+    pub bnd3_files: DLVector<BndEntry>,
+    pub bnd4_files: DLVector<BndEntry>,
     pub bnd3_service_provider: OwnedPtr<DLFileDeviceImageSPIBase>,
     pub bnd4_service_provider: OwnedPtr<DLFileDeviceImageSPIBase>,
     pub mutex: DLPlainLightMutex,
@@ -333,7 +332,7 @@ impl DLFileDeviceVmt for DLFileDeviceBase {
         name_dlstring: &DLString,
         name_u16: *const u16,
         operator_container: &mut DLFileOperatorContainer,
-        allocator: &mut DLAllocatorBase,
+        allocator: &mut DLAllocator,
         is_temp_file: bool,
     ) -> *const DLFileOperatorBase {
         (self.vftable.get_file_operator)(
@@ -373,7 +372,7 @@ where
     R: Read + Seek + 'static,
 {
     pub fn new(
-        allocator: &DLAllocatorBase,
+        allocator: &'static DLAllocator,
         path: &DLString,
         operator_container: &DLFileOperatorContainer,
         file_device: &DLFileDeviceBase,
@@ -420,7 +419,7 @@ where
         self.base.io_state.0 |= (((param_4 as u32 & 1) * 2) | (param_3 as u32 & 1)) * 2;
 
         self.base.path =
-            DLString::copy(self.base.allocator.into(), path).expect("Failed to copy DLString");
+            DLString::transcode_from(path, self.base.allocator).expect("Failed to copy DLString");
 
         true
     }

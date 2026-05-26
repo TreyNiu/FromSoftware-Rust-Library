@@ -276,7 +276,7 @@ impl<V> NodePtr<V> {
 /// [MSVC STL source - `xtree`]: https://github.com/microsoft/STL/blob/main/stl/inc/xtree
 /// [Raymond Chen's breakdown of `xtree`]: https://devblogs.microsoft.com/oldnewthing/20230807-00/?p=108562
 #[repr(C)]
-pub struct RbTree<V, A: Allocator, C: Sized, const UNIQUE: bool = true> {
+pub struct RbTree<V, A: StlAllocator, C: Sized, const UNIQUE: bool = true> {
     comparator: C,
     #[cfg(any(not(feature = "msvc2012"), feature = "msvc2015"))]
     pub allocator: A,
@@ -298,7 +298,7 @@ pub struct RbTree<V, A: Allocator, C: Sized, const UNIQUE: bool = true> {
 /// [MSVC STL source - `map`]: https://github.com/microsoft/STL/blob/main/stl/inc/map
 /// [Raymond Chen's breakdown of `std::map`]: https://devblogs.microsoft.com/oldnewthing/20230807-00/?p=108562
 #[repr(transparent)]
-pub struct Map<K, V, A: Allocator, C: TreeComparator<Pair<K, V>> = KeyLess>(
+pub struct Map<K, V, A: StlAllocator, C: TreeComparator<Pair<K, V>> = KeyLess>(
     RbTree<Pair<K, V>, A, C, true>,
 );
 /// Implementation of MSVC C++ `std::set`
@@ -313,7 +313,7 @@ pub struct Map<K, V, A: Allocator, C: TreeComparator<Pair<K, V>> = KeyLess>(
 /// [MSVC STL source - `set`]: https://github.com/microsoft/STL/blob/main/stl/inc/set
 /// [Raymond Chen's breakdown of `std::set`]: https://devblogs.microsoft.com/oldnewthing/20230807-00/?p=108562
 #[repr(transparent)]
-pub struct Set<K, A: Allocator, C: TreeComparator<K> = Less>(RbTree<K, A, C, true>);
+pub struct Set<K, A: StlAllocator, C: TreeComparator<K> = Less>(RbTree<K, A, C, true>);
 /// Implementation of MSVC C++ `std::multimap`
 ///
 /// # References
@@ -326,7 +326,7 @@ pub struct Set<K, A: Allocator, C: TreeComparator<K> = Less>(RbTree<K, A, C, tru
 /// [MSVC STL source - `multimap`]: https://github.com/microsoft/STL/blob/main/stl/inc/map
 /// [Raymond Chen's breakdown of `std::multimap`]: https://devblogs.microsoft.com/oldnewthing/20230807-00/?p=108562
 #[repr(transparent)]
-pub struct MultiMap<K, V, A: Allocator, C: TreeComparator<Pair<K, V>> = KeyLess>(
+pub struct MultiMap<K, V, A: StlAllocator, C: TreeComparator<Pair<K, V>> = KeyLess>(
     RbTree<Pair<K, V>, A, C, false>,
 );
 /// Implementation of MSVC C++ `std::multiset`
@@ -341,9 +341,11 @@ pub struct MultiMap<K, V, A: Allocator, C: TreeComparator<Pair<K, V>> = KeyLess>
 /// [MSVC STL source - `multiset`]: https://github.com/microsoft/STL/blob/main/stl/inc/set
 /// [Raymond Chen's breakdown of `std::multiset`]: https://devblogs.microsoft.com/oldnewthing/20230807-00/?p=108562
 #[repr(transparent)]
-pub struct MultiSet<K, A: Allocator, C: TreeComparator<K> = Less>(RbTree<K, A, C, false>);
+pub struct MultiSet<K, A: StlAllocator, C: TreeComparator<K> = Less>(RbTree<K, A, C, false>);
 
-impl<V, A: Allocator, C: TreeComparator<V> + Default, const UNIQUE: bool> RbTree<V, A, C, UNIQUE> {
+impl<V, A: StlAllocator, C: TreeComparator<V> + Default, const UNIQUE: bool>
+    RbTree<V, A, C, UNIQUE>
+{
     /// Creates an empty tree using the provided allocator and a default-constructed comparator
     pub fn new_in(mut allocator: A) -> Self {
         let head = Self::alloc_sentinel(&mut allocator);
@@ -356,18 +358,15 @@ impl<V, A: Allocator, C: TreeComparator<V> + Default, const UNIQUE: bool> RbTree
     }
 }
 
-impl<V, A: Allocator, C: Sized, const UNIQUE: bool> Drop for RbTree<V, A, C, UNIQUE> {
+impl<V, A: StlAllocator, C: Sized, const UNIQUE: bool> Drop for RbTree<V, A, C, UNIQUE> {
     fn drop(&mut self) {
-        let root = self.head.parent();
-        if !root.is_nil() {
-            unsafe { self.drop_subtree(root) };
-        }
+        self.clear();
         // Free the sentinel itself (its value field is never initialized)
         unsafe { self.allocator.deallocate_raw(self.head.as_ptr() as _) };
     }
 }
 
-impl<V, A: Allocator, C: Sized, const UNIQUE: bool> RbTree<V, A, C, UNIQUE> {
+impl<V, A: StlAllocator, C: Sized, const UNIQUE: bool> RbTree<V, A, C, UNIQUE> {
     /// Creates an empty tree using the provided allocator and comparator
     pub fn new_in_with(mut allocator: A, comparator: C) -> Self {
         let head = Self::alloc_sentinel(&mut allocator);
@@ -425,7 +424,7 @@ impl<V, A: Allocator, C: Sized, const UNIQUE: bool> RbTree<V, A, C, UNIQUE> {
     }
 }
 
-impl<V, A: Allocator, C: TreeComparator<V>, const UNIQUE: bool> RbTree<V, A, C, UNIQUE> {
+impl<V, A: StlAllocator, C: TreeComparator<V>, const UNIQUE: bool> RbTree<V, A, C, UNIQUE> {
     fn bound_node<const LEFT: bool>(&self, bound: Bound<&C::Key>) -> Option<NodePtr<V>> {
         let v = match bound {
             Bound::Unbounded => {
@@ -661,7 +660,7 @@ impl<V, A: Allocator, C: TreeComparator<V>, const UNIQUE: bool> RbTree<V, A, C, 
     }
 }
 
-impl<V, A: Allocator, C: Sized, const UNIQUE: bool> RbTree<V, A, C, UNIQUE> {
+impl<V, A: StlAllocator, C: Sized, const UNIQUE: bool> RbTree<V, A, C, UNIQUE> {
     /// Inorder iterator, yields values in ascending comparator order
     pub fn iter(&self) -> RbTreeIter<'_, V> {
         let head = self.head;
@@ -692,10 +691,23 @@ impl<V, A: Allocator, C: Sized, const UNIQUE: bool> RbTree<V, A, C, UNIQUE> {
     pub fn is_empty(&self) -> bool {
         self.size == 0
     }
+
+    pub fn clear(&mut self) {
+        let root = self.head.parent();
+        if !root.is_nil() {
+            unsafe { self.drop_subtree(root) };
+        }
+        unsafe {
+            self.head.get_mut().parent = self.head;
+            self.head.get_mut().left = self.head;
+            self.head.get_mut().right = self.head;
+        }
+        self.size = 0;
+    }
 }
 
 // Set API
-impl<V, A: Allocator, C: TreeComparator<V>> Set<V, A, C> {
+impl<V, A: StlAllocator, C: TreeComparator<V>> Set<V, A, C> {
     pub fn contains(&self, key: &C::Key) -> bool {
         self.find_node(key).is_some()
     }
@@ -728,7 +740,7 @@ impl<V, A: Allocator, C: TreeComparator<V>> Set<V, A, C> {
 }
 
 // MultiSet API
-impl<V, A: Allocator, C: TreeComparator<V>> MultiSet<V, A, C> {
+impl<V, A: StlAllocator, C: TreeComparator<V>> MultiSet<V, A, C> {
     pub fn contains(&self, key: &C::Key) -> bool {
         self.find_node(key).is_some()
     }
@@ -776,7 +788,7 @@ impl<V, A: Allocator, C: TreeComparator<V>> MultiSet<V, A, C> {
 }
 
 // Map API
-impl<K, V, A: Allocator, C: TreeComparator<Pair<K, V>, Key = K>> Map<K, V, A, C> {
+impl<K, V, A: StlAllocator, C: TreeComparator<Pair<K, V>, Key = K>> Map<K, V, A, C> {
     pub fn contains(&self, key: &K) -> bool {
         self.find_node(key).is_some()
     }
@@ -826,7 +838,7 @@ impl<K, V, A: Allocator, C: TreeComparator<Pair<K, V>, Key = K>> Map<K, V, A, C>
 }
 
 // MultiMap API
-impl<K, V, A: Allocator, C: TreeComparator<Pair<K, V>, Key = K>> MultiMap<K, V, A, C> {
+impl<K, V, A: StlAllocator, C: TreeComparator<Pair<K, V>, Key = K>> MultiMap<K, V, A, C> {
     pub fn contains(&self, key: &K) -> bool {
         self.find_node(key).is_some()
     }
@@ -948,7 +960,7 @@ impl<'a, V> Iterator for RbTreeIterMut<'a, V> {
 impl<V> ExactSizeIterator for RbTreeIterMut<'_, V> {}
 impl<V> FusedIterator for RbTreeIterMut<'_, V> {}
 
-impl<'a, V, A: Allocator, C: Sized, const UNIQUE: bool> IntoIterator
+impl<'a, V, A: StlAllocator, C: Sized, const UNIQUE: bool> IntoIterator
     for &'a RbTree<V, A, C, UNIQUE>
 {
     type Item = &'a V;
@@ -958,7 +970,7 @@ impl<'a, V, A: Allocator, C: Sized, const UNIQUE: bool> IntoIterator
     }
 }
 
-impl<'a, V, A: Allocator, C: Sized, const UNIQUE: bool> IntoIterator
+impl<'a, V, A: StlAllocator, C: Sized, const UNIQUE: bool> IntoIterator
     for &'a mut RbTree<V, A, C, UNIQUE>
 {
     type Item = &'a mut V;
@@ -968,14 +980,14 @@ impl<'a, V, A: Allocator, C: Sized, const UNIQUE: bool> IntoIterator
     }
 }
 
-impl<'a, K, A: Allocator, C: TreeComparator<K>> IntoIterator for &'a Set<K, A, C> {
+impl<'a, K, A: StlAllocator, C: TreeComparator<K>> IntoIterator for &'a Set<K, A, C> {
     type Item = &'a K;
     type IntoIter = RbTreeIter<'a, K>;
     fn into_iter(self) -> RbTreeIter<'a, K> {
         self.0.iter()
     }
 }
-impl<'a, K, A: Allocator, C: TreeComparator<K>> IntoIterator for &'a mut Set<K, A, C> {
+impl<'a, K, A: StlAllocator, C: TreeComparator<K>> IntoIterator for &'a mut Set<K, A, C> {
     type Item = &'a mut K;
     type IntoIter = RbTreeIterMut<'a, K>;
     fn into_iter(self) -> RbTreeIterMut<'a, K> {
@@ -983,14 +995,16 @@ impl<'a, K, A: Allocator, C: TreeComparator<K>> IntoIterator for &'a mut Set<K, 
     }
 }
 
-impl<'a, K, V, A: Allocator, C: TreeComparator<Pair<K, V>>> IntoIterator for &'a Map<K, V, A, C> {
+impl<'a, K, V, A: StlAllocator, C: TreeComparator<Pair<K, V>>> IntoIterator
+    for &'a Map<K, V, A, C>
+{
     type Item = &'a Pair<K, V>;
     type IntoIter = RbTreeIter<'a, Pair<K, V>>;
     fn into_iter(self) -> RbTreeIter<'a, Pair<K, V>> {
         self.0.iter()
     }
 }
-impl<'a, K, V, A: Allocator, C: TreeComparator<Pair<K, V>>> IntoIterator
+impl<'a, K, V, A: StlAllocator, C: TreeComparator<Pair<K, V>>> IntoIterator
     for &'a mut Map<K, V, A, C>
 {
     type Item = &'a mut Pair<K, V>;
@@ -1000,14 +1014,14 @@ impl<'a, K, V, A: Allocator, C: TreeComparator<Pair<K, V>>> IntoIterator
     }
 }
 
-impl<'a, K, A: Allocator, C: TreeComparator<K>> IntoIterator for &'a MultiSet<K, A, C> {
+impl<'a, K, A: StlAllocator, C: TreeComparator<K>> IntoIterator for &'a MultiSet<K, A, C> {
     type Item = &'a K;
     type IntoIter = RbTreeIter<'a, K>;
     fn into_iter(self) -> RbTreeIter<'a, K> {
         self.0.iter()
     }
 }
-impl<'a, K, A: Allocator, C: TreeComparator<K>> IntoIterator for &'a mut MultiSet<K, A, C> {
+impl<'a, K, A: StlAllocator, C: TreeComparator<K>> IntoIterator for &'a mut MultiSet<K, A, C> {
     type Item = &'a mut K;
     type IntoIter = RbTreeIterMut<'a, K>;
     fn into_iter(self) -> RbTreeIterMut<'a, K> {
@@ -1015,7 +1029,7 @@ impl<'a, K, A: Allocator, C: TreeComparator<K>> IntoIterator for &'a mut MultiSe
     }
 }
 
-impl<'a, K, V, A: Allocator, C: TreeComparator<Pair<K, V>>> IntoIterator
+impl<'a, K, V, A: StlAllocator, C: TreeComparator<Pair<K, V>>> IntoIterator
     for &'a MultiMap<K, V, A, C>
 {
     type Item = &'a Pair<K, V>;
@@ -1024,7 +1038,7 @@ impl<'a, K, V, A: Allocator, C: TreeComparator<Pair<K, V>>> IntoIterator
         self.0.iter()
     }
 }
-impl<'a, K, V, A: Allocator, C: TreeComparator<Pair<K, V>>> IntoIterator
+impl<'a, K, V, A: StlAllocator, C: TreeComparator<Pair<K, V>>> IntoIterator
     for &'a mut MultiMap<K, V, A, C>
 {
     type Item = &'a mut Pair<K, V>;
@@ -1034,70 +1048,70 @@ impl<'a, K, V, A: Allocator, C: TreeComparator<Pair<K, V>>> IntoIterator
     }
 }
 
-impl<K, A: Allocator, C: TreeComparator<K>> Deref for Set<K, A, C> {
+impl<K, A: StlAllocator, C: TreeComparator<K>> Deref for Set<K, A, C> {
     type Target = RbTree<K, A, C, true>;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
-impl<K, A: Allocator, C: TreeComparator<K>> DerefMut for Set<K, A, C> {
+impl<K, A: StlAllocator, C: TreeComparator<K>> DerefMut for Set<K, A, C> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
-impl<K, V, A: Allocator, C: TreeComparator<Pair<K, V>>> Deref for Map<K, V, A, C> {
+impl<K, V, A: StlAllocator, C: TreeComparator<Pair<K, V>>> Deref for Map<K, V, A, C> {
     type Target = RbTree<Pair<K, V>, A, C, true>;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
-impl<K, V, A: Allocator, C: TreeComparator<Pair<K, V>>> DerefMut for Map<K, V, A, C> {
+impl<K, V, A: StlAllocator, C: TreeComparator<Pair<K, V>>> DerefMut for Map<K, V, A, C> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
-impl<K, A: Allocator, C: TreeComparator<K>> Deref for MultiSet<K, A, C> {
+impl<K, A: StlAllocator, C: TreeComparator<K>> Deref for MultiSet<K, A, C> {
     type Target = RbTree<K, A, C, false>;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
-impl<K, A: Allocator, C: TreeComparator<K>> DerefMut for MultiSet<K, A, C> {
+impl<K, A: StlAllocator, C: TreeComparator<K>> DerefMut for MultiSet<K, A, C> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
-impl<K, V, A: Allocator, C: TreeComparator<Pair<K, V>>> Deref for MultiMap<K, V, A, C> {
+impl<K, V, A: StlAllocator, C: TreeComparator<Pair<K, V>>> Deref for MultiMap<K, V, A, C> {
     type Target = RbTree<Pair<K, V>, A, C, false>;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
-impl<K, V, A: Allocator, C: TreeComparator<Pair<K, V>>> DerefMut for MultiMap<K, V, A, C> {
+impl<K, V, A: StlAllocator, C: TreeComparator<Pair<K, V>>> DerefMut for MultiMap<K, V, A, C> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
-impl<K, A: Allocator, C: TreeComparator<K> + Default> Set<K, A, C> {
+impl<K, A: StlAllocator, C: TreeComparator<K> + Default> Set<K, A, C> {
     pub fn new_in(allocator: A) -> Self {
         Set(RbTree::new_in(allocator))
     }
 }
-impl<K, V, A: Allocator, C: TreeComparator<Pair<K, V>> + Default> Map<K, V, A, C> {
+impl<K, V, A: StlAllocator, C: TreeComparator<Pair<K, V>> + Default> Map<K, V, A, C> {
     pub fn new_in(allocator: A) -> Self {
         Map(RbTree::new_in(allocator))
     }
 }
-impl<K, A: Allocator, C: TreeComparator<K> + Default> MultiSet<K, A, C> {
+impl<K, A: StlAllocator, C: TreeComparator<K> + Default> MultiSet<K, A, C> {
     pub fn new_in(allocator: A) -> Self {
         MultiSet(RbTree::new_in(allocator))
     }
 }
-impl<K, V, A: Allocator, C: TreeComparator<Pair<K, V>> + Default> MultiMap<K, V, A, C> {
+impl<K, V, A: StlAllocator, C: TreeComparator<Pair<K, V>> + Default> MultiMap<K, V, A, C> {
     pub fn new_in(allocator: A) -> Self {
         MultiMap(RbTree::new_in(allocator))
     }

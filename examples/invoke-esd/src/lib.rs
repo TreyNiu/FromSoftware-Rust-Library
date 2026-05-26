@@ -8,7 +8,7 @@ use eldenring::{
     ez_state::EzStateValue,
     fd4::FD4TaskData,
 };
-use fromsoftware_shared::{FromStatic, task::*};
+use fromsoftware_shared::{FromStatic, SharedTaskImpExt};
 use windows::Win32::UI::Input::KeyboardAndMouse::{GetKeyState, VIRTUAL_KEY, VK_T};
 
 fn is_key_down(key: VIRTUAL_KEY) -> bool {

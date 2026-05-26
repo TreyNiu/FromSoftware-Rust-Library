@@ -13,7 +13,7 @@ use std::{mem::MaybeUninit, ptr::NonNull};
 /// [cppreference - `std::list`]: https://en.cppreference.com/w/cpp/container/list.html
 /// [MSVC STL source - `list`]: https://github.com/microsoft/STL/blob/main/stl/inc/list
 /// [Raymond Chen's breakdown of `std::list`]: https://devblogs.microsoft.com/oldnewthing/20230804-00/?p=108547
-pub struct List<T, A: Allocator> {
+pub struct List<T, A: StlAllocator> {
     #[cfg(any(not(feature = "msvc2012"), feature = "msvc2015"))]
     pub allocator: A,
     head: NonNull<Node<T>>,
@@ -29,11 +29,11 @@ struct Node<T> {
     value: MaybeUninit<T>,
 }
 
-impl<T, A: Allocator> List<T, A> {
+impl<T, A: StlAllocator> List<T, A> {
     /// Creates an empty list backed by `allocator`.
     ///
     /// Equivalent to `std::list<T>()` with a custom allocator
-    pub fn new_in(mut allocator: A) -> Self {
+    pub fn new_in(allocator: A) -> Self {
         // Allocate the sentinel head node. Its value is never initialized
         let head = allocator.allocate::<Node<T>>();
         unsafe {
@@ -170,6 +170,23 @@ impl<T, A: Allocator> List<T, A> {
         Some(unsafe { self.detach_node(node) })
     }
 
+    pub fn clear(&mut self) {
+        let mut current = unsafe { self.head.as_ref() }.next;
+        while current != self.head {
+            let next = unsafe { current.as_ref() }.next;
+            unsafe {
+                std::ptr::drop_in_place((*current.as_ptr()).value.as_mut_ptr());
+                self.allocator.deallocate_raw(current.as_ptr() as _);
+            }
+            current = next;
+        }
+        unsafe {
+            (*self.head.as_ptr()).next = self.head;
+            (*self.head.as_ptr()).previous = self.head;
+        }
+        self.length = 0;
+    }
+
     /// # Safety
     ///
     /// `node` must be a node and belong this list and not be the sentinel node.
@@ -197,17 +214,9 @@ impl<T, A: Allocator> List<T, A> {
     }
 }
 
-impl<T, A: Allocator> Drop for List<T, A> {
+impl<T, A: StlAllocator> Drop for List<T, A> {
     fn drop(&mut self) {
-        let mut current = unsafe { self.head.as_ref() }.next;
-        while current != self.head {
-            let next = unsafe { current.as_ref() }.next;
-            unsafe {
-                std::ptr::drop_in_place((*current.as_ptr()).value.as_mut_ptr());
-                self.allocator.deallocate_raw(current.as_ptr() as _);
-            }
-            current = next;
-        }
+        self.clear();
         unsafe { self.allocator.deallocate_raw(self.head.as_ptr() as _) };
     }
 }

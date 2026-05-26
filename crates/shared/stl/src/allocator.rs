@@ -4,26 +4,27 @@ use std::{
     ptr::NonNull,
 };
 
-pub trait Allocator: Clone {
+/// Special trait for use in MSVC STL collections.
+pub trait StlAllocator: Clone {
     /// # Safety
     ///
     /// `size` must be non-zero. `align` must be a power of two.
     /// The returned pointer is valid for `size` bytes and aligned to `align`
-    unsafe fn allocate_raw(&mut self, size: usize, align: usize) -> *mut c_void;
+    unsafe fn allocate_raw(&self, size: usize, align: usize) -> *mut c_void;
     /// # Safety
     ///
     /// `ptr` must have been obtained from a previous call to `allocate_raw`
     /// on the same allocator instance. It must not be used after this call
-    unsafe fn deallocate_raw(&mut self, ptr: *mut c_void);
+    unsafe fn deallocate_raw(&self, ptr: *mut c_void);
 
     /// `T` must not be a zero-sized type.
-    fn allocate<T>(&mut self) -> NonNull<T> {
+    fn allocate<T>(&self) -> NonNull<T> {
         unsafe { NonNull::new(self.allocate_raw(size_of::<T>(), align_of::<T>()) as _) }
-            .expect("Allocator returned null pointer")
+            .expect("StlAllocator returned null pointer")
     }
 
     /// Allocates `count` elemets. Panics if `count` is zero
-    fn allocate_n<T>(&mut self, count: usize) -> NonNull<[T]> {
+    fn allocate_n<T>(&self, count: usize) -> NonNull<[T]> {
         if count == 0 {
             panic!("allocate_n called with 0 elements")
         }
@@ -33,7 +34,7 @@ pub trait Allocator: Clone {
 
         let ptr = unsafe { self.allocate_raw(size, align_of::<T>()).cast::<T>() };
         if ptr.is_null() {
-            panic!("Allocator returned null pointer")
+            panic!("StlAllocator returned null pointer")
         }
 
         // Safety: ptr is non-null and we own `count` elements

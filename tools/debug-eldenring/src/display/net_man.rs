@@ -20,7 +20,7 @@ impl DebugDisplay for BreakInManager {
     fn render_debug(&self, ui: &Ui) {
         ui.debug("Multiplay Type", self.multiplay_type);
 
-        ui.list("Break In Targets", self.targets.items(), |ui, _i, item| {
+        ui.list("Break In Targets", self.targets.iter(), |ui, _i, item| {
             item.render_debug(ui);
         });
 
@@ -44,7 +44,7 @@ impl DebugDisplay for BreakInManager {
 impl DebugDisplay for BreakInTarget {
     fn render_debug(&self, ui: &Ui) {
         ui.display("Player ID", self.player_id);
-        let steam_id_str = self.external_id_str().unwrap_or("Invalid".to_owned());
+        let steam_id_str = self.external_id.to_str().unwrap_or("Invalid");
         ui.debug_copiable("Steam ID", steam_id_str);
         ui.display("Play Region", self.play_region)
     }
@@ -60,7 +60,7 @@ impl DebugDisplay for BreakInAreaList {
                     TableColumnSetup::new("Index"),
                     TableColumnSetup::new("Area"),
                 ],
-                self.areas.items(),
+                self.areas.iter(),
                 |ui, i, e| {
                     ui.table_next_column();
                     ui.text(format!("{i}"));

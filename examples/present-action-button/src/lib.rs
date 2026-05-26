@@ -7,7 +7,7 @@ use eldenring::{
     },
     fd4::FD4TaskData,
 };
-use fromsoftware_shared::{FromStatic, task::*};
+use fromsoftware_shared::{FromStatic, SharedTaskImpExt};
 
 const DEBOUNCE_DELAY: std::time::Duration = Duration::from_secs(2);
 

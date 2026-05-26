@@ -8,7 +8,7 @@ use eldenring::{
     fd4::FD4TaskData,
     util::input,
 };
-use fromsoftware_shared::{FromStatic, task::*};
+use fromsoftware_shared::{FromStatic, SharedTaskImpExt};
 
 #[unsafe(no_mangle)]
 /// # Safety

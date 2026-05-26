@@ -2,9 +2,9 @@ use std::ffi::c_void;
 use std::sync::Once;
 use std::time::Duration;
 
-use hudhook::imgui::{Condition, Context, Io, Ui, sys as imgui_sys};
+use hudhook::imgui::{Condition, Context, Ui, sys as imgui_sys};
 use hudhook::windows::Win32::Foundation::HINSTANCE;
-use hudhook::{ImguiRenderLoop, MessageFilter, eject, hooks::dx12::ImguiDx12Hooks};
+use hudhook::{ImguiRenderLoop, eject, hooks::dx12::ImguiDx12Hooks};
 use pelite::pe64::Pe;
 use rva::RVA_GLOBAL_FIELD_AREA;
 
@@ -110,22 +110,30 @@ impl ImguiRenderLoop for EldenRingDebugGui {
         unsafe {
             let ctx = imgui_sys::igGetCurrentContext();
             forward_imgui_context_on_reload(ctx);
+            let blocker = InputBlocker::get_instance();
+            forward_input_blocker_on_reload(blocker)
         }
         self.update_scale();
+        unsafe {
+            let blocker = InputBlocker::get_instance();
+            blocker
+                .install_hooks()
+                .expect("Failed to install input hook")
+        }
 
         // SAFETY: *do not* modify this function signature while the game is running.
         unsafe {
             render_live_reload(self, ui);
         }
     }
-
-    fn message_filter(&self, _io: &Io) -> MessageFilter {
-        MessageFilter::InputAll
-    }
 }
 
 #[libhotpatch::hotpatch]
 unsafe fn render_live_reload(gui: &mut EldenRingDebugGui, ui: &mut Ui) {
+    let io = ui.io();
+    let blocker = InputBlocker::get_instance();
+    blocker.block_from_io(io);
+
     let program = Program::current();
 
     ui.window("Elden Ring Rust Bindings Debug")
@@ -202,4 +210,12 @@ unsafe fn render_live_reload(gui: &mut EldenRingDebugGui, ui: &mut Ui) {
 unsafe fn forward_imgui_context_on_reload(ctx: *mut imgui_sys::ImGuiContext) {
     static ONCE: Once = Once::new();
     ONCE.call_once(|| unsafe { imgui_sys::igSetCurrentContext(ctx) });
+}
+
+#[libhotpatch::hotpatch]
+unsafe fn forward_input_blocker_on_reload(blocker: &'static InputBlocker) {
+    static ONCE: Once = Once::new();
+    ONCE.call_once(|| {
+        InputBlocker::forward_instance(blocker);
+    });
 }

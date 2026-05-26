@@ -5,8 +5,9 @@ use bitfield::bitfield;
 use thiserror::Error;
 
 use crate::{
-    BasicVector, Vector,
+    DLVector,
     cs::{ChrType, MultiplayRole},
+    from_net::FNVector,
 };
 use shared::{IsEmpty, MaybeEmpty, NonEmptyIteratorExt, NonEmptyIteratorMutExt, OwnedPtr};
 
@@ -153,7 +154,7 @@ pub struct PlayerGameData {
     _pad931: [u8; 3],
     unk934: u32,
     /// Vector of all visited play area IDs
-    pub visited_areas: BasicVector<u32>,
+    pub visited_areas: FNVector<u32>,
     pub mount_handle: FieldInsHandle,
     unk958: [u8; 0x8],
     pub damage_negation_physical: i32,
@@ -355,7 +356,7 @@ pub struct EquipGameData {
     equip_gesture_data: usize,
     /// Tracker for the item replenishing from the chest
     pub item_replenish_state_tracker: Option<OwnedPtr<ItemReplenishStateTracker>>,
-    pub qm_item_backup_vector: OwnedPtr<Vector<QMItemBackupVectorItem>>,
+    pub qm_item_backup_vector: OwnedPtr<DLVector<QMItemBackupVectorItem>>,
     pub equipment_entries: ChrAsmEquipEntries,
     unk3e0: usize,
     unk3e8: usize,

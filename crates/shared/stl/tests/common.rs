@@ -4,7 +4,7 @@ use std::{
     sync::atomic::{AtomicUsize, Ordering},
 };
 
-use fromsoftware_shared_stl::Allocator;
+use fromsoftware_shared_stl::StlAllocator;
 
 #[derive(Clone)]
 pub struct StdAlloc {
@@ -30,8 +30,8 @@ impl StdAlloc {
 /// ```
 const HEADER: usize = std::mem::size_of::<[usize; 2]>();
 
-impl Allocator for StdAlloc {
-    unsafe fn allocate_raw(&mut self, size: usize, align: usize) -> *mut c_void {
+impl StlAllocator for StdAlloc {
+    unsafe fn allocate_raw(&self, size: usize, align: usize) -> *mut c_void {
         // Allocate with extra room for the header
         let full_align = align.max(std::mem::align_of::<usize>());
         let full_size = HEADER + size;
@@ -48,7 +48,7 @@ impl Allocator for StdAlloc {
         unsafe { raw.add(HEADER) as *mut c_void }
     }
 
-    unsafe fn deallocate_raw(&mut self, ptr: *mut c_void) {
+    unsafe fn deallocate_raw(&self, ptr: *mut c_void) {
         // Recover header
         let header = unsafe { (ptr as *mut u8).sub(HEADER) };
         let size = unsafe { (header as *mut usize).read() };
