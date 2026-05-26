@@ -21,232 +21,174 @@ pub fn enabled_weapon_ids(enabled_categories: &[u16]) -> Vec<u32> {
     ids
 }
 
-pub fn enabled_pool_summary(enabled_categories: &[u16]) -> String {
-    let enabled = WEAPON_POOLS
-        .iter()
-        .filter(|pool| enabled_categories.contains(&pool.wepmotion_category))
-        .map(|pool| {
-            format!(
-                "{}:{}({})",
-                pool.wepmotion_category,
-                pool.label,
-                pool.ids.len()
-            )
-        })
-        .collect::<Vec<_>>();
-    enabled.join(", ")
-}
-
 pub struct WeaponPool {
     pub wepmotion_category: u16,
-    pub label: &'static str,
     pub ids: &'static [u32],
 }
 
 pub const WEAPON_POOLS: &[WeaponPool] = &[
     WeaponPool {
         wepmotion_category: 20,
-        label: "短剑 / Dagger",
         ids: WEAPON_POOL_20,
     },
     WeaponPool {
         wepmotion_category: 21,
-        label: "火把 / Torch",
         ids: WEAPON_POOL_21,
     },
     WeaponPool {
         wepmotion_category: 22,
-        label: "爪 / Claw",
         ids: WEAPON_POOL_22,
     },
     WeaponPool {
         wepmotion_category: 23,
-        label: "直剑 / Straight Sword",
         ids: WEAPON_POOL_23,
     },
     WeaponPool {
         wepmotion_category: 24,
-        label: "双头剑 / Twinblade",
         ids: WEAPON_POOL_24,
     },
     WeaponPool {
         wepmotion_category: 25,
-        label: "大剑 / Greatsword",
         ids: WEAPON_POOL_25,
     },
     WeaponPool {
         wepmotion_category: 26,
-        label: "特大剑 / Colossal Sword",
         ids: WEAPON_POOL_26,
     },
     WeaponPool {
         wepmotion_category: 27,
-        label: "刺剑 / Thrusting Sword",
         ids: WEAPON_POOL_27,
     },
     WeaponPool {
         wepmotion_category: 28,
-        label: "曲剑 / Curved Sword",
         ids: WEAPON_POOL_28,
     },
     WeaponPool {
         wepmotion_category: 29,
-        label: "刀 / Katana",
         ids: WEAPON_POOL_29,
     },
     WeaponPool {
         wepmotion_category: 30,
-        label: "斧 / Axe",
         ids: WEAPON_POOL_30,
     },
     WeaponPool {
         wepmotion_category: 31,
-        label: "特大武器 / Colossal Weapon",
         ids: WEAPON_POOL_31,
     },
     WeaponPool {
         wepmotion_category: 32,
-        label: "大斧 / Greataxe",
         ids: WEAPON_POOL_32,
     },
     WeaponPool {
         wepmotion_category: 33,
-        label: "槌 / Hammer",
         ids: WEAPON_POOL_33,
     },
     WeaponPool {
         wepmotion_category: 34,
-        label: "连枷 / Flail",
         ids: WEAPON_POOL_34,
     },
     WeaponPool {
         wepmotion_category: 35,
-        label: "大槌 / Great Hammer",
         ids: WEAPON_POOL_35,
     },
     WeaponPool {
         wepmotion_category: 36,
-        label: "矛 / Spear",
         ids: WEAPON_POOL_36,
     },
     WeaponPool {
         wepmotion_category: 37,
-        label: "大矛 / Great Spear",
         ids: WEAPON_POOL_37,
     },
     WeaponPool {
         wepmotion_category: 38,
-        label: "戟 / Halberd",
         ids: WEAPON_POOL_38,
     },
     WeaponPool {
         wepmotion_category: 39,
-        label: "重刺剑 / Heavy Thrusting Sword",
         ids: WEAPON_POOL_39,
     },
     WeaponPool {
         wepmotion_category: 40,
-        label: "大曲剑 / Curved Greatsword",
         ids: WEAPON_POOL_40,
     },
     WeaponPool {
         wepmotion_category: 41,
-        label: "法杖与圣印 / Staff + Seal",
         ids: WEAPON_POOL_41,
     },
     WeaponPool {
         wepmotion_category: 42,
-        label: "拳套 / Fist",
         ids: WEAPON_POOL_42,
     },
     WeaponPool {
         wepmotion_category: 43,
-        label: "鞭 / Whip",
         ids: WEAPON_POOL_43,
     },
     WeaponPool {
         wepmotion_category: 44,
-        label: "长弓 / Bow",
         ids: WEAPON_POOL_44,
     },
     WeaponPool {
         wepmotion_category: 45,
-        label: "大弓 / Greatbow",
         ids: WEAPON_POOL_45,
     },
     WeaponPool {
         wepmotion_category: 46,
-        label: "弩 / Crossbow",
         ids: WEAPON_POOL_46,
     },
     WeaponPool {
         wepmotion_category: 47,
-        label: "大盾 / Greatshield",
         ids: WEAPON_POOL_47,
     },
     WeaponPool {
         wepmotion_category: 48,
-        label: "小盾 / Small Shield",
         ids: WEAPON_POOL_48,
     },
     WeaponPool {
         wepmotion_category: 49,
-        label: "中盾 / Medium Shield",
         ids: WEAPON_POOL_49,
     },
     WeaponPool {
         wepmotion_category: 50,
-        label: "镰刀 / Reaper",
         ids: WEAPON_POOL_50,
     },
     WeaponPool {
         wepmotion_category: 51,
-        label: "短弓 / Light Bow",
         ids: WEAPON_POOL_51,
     },
     WeaponPool {
         wepmotion_category: 52,
-        label: "弩炮 / Ballista",
         ids: WEAPON_POOL_52,
     },
     WeaponPool {
         wepmotion_category: 53,
-        label: "投掷短剑 / Throwing Blade",
         ids: WEAPON_POOL_53,
     },
     WeaponPool {
         wepmotion_category: 55,
-        label: "格斗术 / Hand-to-Hand",
         ids: WEAPON_POOL_55,
     },
     WeaponPool {
         wepmotion_category: 56,
-        label: "调香瓶 / Perfume Bottle",
         ids: WEAPON_POOL_56,
     },
     WeaponPool {
         wepmotion_category: 57,
-        label: "突刺盾 / Thrusting Shield",
         ids: WEAPON_POOL_57,
     },
     WeaponPool {
         wepmotion_category: 58,
-        label: "反手剑 / Backhand Blade",
         ids: WEAPON_POOL_58,
     },
     WeaponPool {
         wepmotion_category: 60,
-        label: "轻大剑 / Light Greatsword",
         ids: WEAPON_POOL_60,
     },
     WeaponPool {
         wepmotion_category: 61,
-        label: "大太刀 / Great Katana",
         ids: WEAPON_POOL_61,
     },
     WeaponPool {
         wepmotion_category: 62,
-        label: "野兽爪 / Beast Claw",
         ids: WEAPON_POOL_62,
     },
 ];

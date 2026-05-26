@@ -19,7 +19,7 @@ use crate::{
     config::WeaponRandomizerConfig,
     log::{beep_toggle, log_event},
     weapon_debug_pool::{choose_debug_ash, collect_debug_weapon_candidates},
-    weapon_pools::{enabled_pool_summary, enabled_weapon_ids},
+    weapon_pools::enabled_weapon_ids,
 };
 
 pub struct WeaponRandomizer {
@@ -336,7 +336,6 @@ pub fn randomize_selected_weapon(
     } else {
         collect_weapon_candidates(solo_params, config)
     };
-    log_event(format!("weapon candidates: {}", weapons.len()));
     if weapons.is_empty() {
         log_event("skip: no weapon candidates");
         return false;
@@ -574,13 +573,6 @@ fn collect_weapon_candidates(
             })
         })
         .collect::<Vec<_>>();
-
-    log_event(format!(
-        "weapon pool scan: enabled_ids={}, missing_rows={missing_rows}, zero_wep_type_rows={zero_wep_type_rows}, candidates={}, enabled_pools=[{}]",
-        ids.len(),
-        candidates.len(),
-        enabled_pool_summary(&config.enabled_wepmotion_categories)
-    ));
 
     candidates
 }
