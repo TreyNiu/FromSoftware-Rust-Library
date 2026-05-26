@@ -8,7 +8,8 @@ use eldenring::util::input;
 use eldenring::{
     cs::{
         CSGaitemImp, CSGemGaitemIns, CSWepGaitemIns, EquipGameData, EquipParamGem,
-        EquipParamWeapon, GaitemHandle, GameDataMan, ItemCategory, ItemId, SoloParamRepository,
+        EquipParamWeapon, GaitemHandle, GameDataMan, ItemCategory, ItemId, OptionalItemId,
+        SoloParamRepository,
     },
     param::{EQUIP_PARAM_GEM_ST, EQUIP_PARAM_WEAPON_ST},
 };
@@ -240,11 +241,19 @@ struct EquippedSlotBackup {
     original_param_row: u32,
     original_equipment_param_id: i32,
     original_item_id: ItemId,
+    original_gem: Option<GemAttachmentBackup>,
 }
 
 struct WeaponParamBackup {
     param_id: u32,
     bytes: Vec<u8>,
+}
+
+#[derive(Clone, Copy)]
+struct GemAttachmentBackup {
+    handle: GaitemHandle,
+    item_id: OptionalItemId,
+    weapon_handle: GaitemHandle,
 }
 
 impl WeaponRandomizerBackup {
@@ -301,8 +310,6 @@ pub fn randomize_selected_weapon(
     backup: &WeaponRandomizerBackup,
     config: &WeaponRandomizerConfig,
 ) -> bool {
-    log_event(format!("{hand:?} hand randomization tick"));
-
     let Some((slot, player_level)) = selected_weapon_slot_and_level(hand) else {
         log_event(format!(
             "skip: selected {:?} weapon slot or player level unavailable",
@@ -322,17 +329,13 @@ pub fn randomize_selected_weapon(
         return false;
     };
 
-    log_event(format!(
-        "current slot: {slot:?}, player level: {player_level}, target_param_row={target_param_row}"
-    ));
-
     let Ok(solo_params) = (unsafe { SoloParamRepository::instance() }) else {
         log_event("skip: SoloParamRepository::instance failed");
         return false;
     };
 
     let weapons = if config.debug_fixed_pool {
-        collect_debug_weapon_candidates(solo_params)
+        collect_debug_weapon_candidates(solo_params, config.include_unique_weapons)
     } else {
         collect_weapon_candidates(solo_params, config)
     };
@@ -345,24 +348,7 @@ pub fn randomize_selected_weapon(
     let weapon = *weapons
         .choose(&mut rng)
         .expect("candidate list is not empty");
-    let ash = if !config.randomize_ashes {
-        None
-    } else if config.debug_fixed_pool {
-        choose_debug_ash(solo_params, weapon, &mut rng)
-    } else {
-        choose_ash_for_weapon(solo_params, weapon, &mut rng)
-    };
-
-    log_event(format!(
-        "selected weapon base={}, unique={}, wep_type={}, gem={}, sword_art={}",
-        weapon.base_param_id,
-        weapon.unique,
-        weapon.wep_type,
-        ash.and_then(|ash| ash.gem_param_id)
-            .map(|gem_param_id| gem_param_id as i32)
-            .unwrap_or(-1),
-        ash.map(|ash| ash.sword_art_id).unwrap_or(-1)
-    ));
+    let ash = choose_ash_candidate(solo_params, weapon, config, &mut rng);
 
     // ER 的武器 param ID 会把强化等级和质变编码进去；这里只选择真实存在的派生 row。
     let Some(randomized_param) =
@@ -377,17 +363,16 @@ pub fn randomize_selected_weapon(
     let sword_art_id = ash
         .map(|ash| ash.sword_art_id)
         .unwrap_or(weapon.sword_art_id);
+    let current_weapon_sword_art = solo_params
+        .get::<EquipParamWeapon>(target_param_row)
+        .map(|current| current.sword_arts_param_id())
+        .unwrap_or(-1);
+    let current_weapon_icon = solo_params
+        .get::<EquipParamWeapon>(target_param_row)
+        .map(|current| current.icon_id())
+        .unwrap_or(0);
 
-    log_event(format!(
-        "applying param_id={}, source_param_id={}, icon_id={}, sword_art_id={sword_art_id}, infusion_offset={}, reinforcement=+{}",
-        randomized_param.param_id,
-        randomized_param.source_param_id,
-        weapon.icon_id,
-        randomized_param.infusion_offset,
-        randomized_param.reinforcement_level
-    ));
-
-    apply_randomized_weapon(
+    let applied = apply_randomized_weapon(
         slot,
         randomized_param.param_id,
         randomized_param.source_param_id,
@@ -395,7 +380,46 @@ pub fn randomize_selected_weapon(
         weapon.icon_id,
         ash,
         sword_art_id,
-    )
+    );
+
+    if applied {
+        log_event(format!(
+            "{hand:?} hand randomize: slot={slot:?}, current_row={target_param_row}, current_icon={}, current_sword_art={}, randomized_base={}, source_row={}, default_sword_art={}, target_param={}, target_sword_art={}, target_gem={}, unique={}, infusion_offset={}, reinforcement=+{}",
+            current_weapon_icon,
+            current_weapon_sword_art,
+            weapon.base_param_id,
+            randomized_param.source_param_id,
+            weapon.sword_art_id,
+            randomized_param.param_id,
+            sword_art_id,
+            ash.and_then(|ash| ash.gem_param_id)
+                .map(|gem_param_id| gem_param_id as i32)
+                .unwrap_or(-1),
+            weapon.unique,
+            randomized_param.infusion_offset,
+            randomized_param.reinforcement_level,
+        ));
+    }
+
+    applied
+}
+
+fn choose_ash_candidate(
+    params: &SoloParamRepository,
+    weapon: WeaponCandidate,
+    config: &WeaponRandomizerConfig,
+    rng: &mut impl Rng,
+) -> Option<AshCandidate> {
+    if !config.randomize_ashes {
+        return None;
+    }
+
+    let ignore_compatibility = config.ignore_ash_compatibility || config.debug_fixed_pool;
+    if config.debug_fixed_pool || config.debug_fixed_ash_pool {
+        choose_debug_ash(params, weapon, ignore_compatibility, rng)
+    } else {
+        choose_ash_for_weapon(params, weapon, config.ignore_ash_compatibility, rng)
+    }
 }
 
 fn selected_weapon_slot_and_level(hand: Hand) -> Option<(WeaponSlot, u32)> {
@@ -450,6 +474,7 @@ pub fn capture_weapon_randomizer_backup(hand: Hand) -> Option<WeaponRandomizerBa
                 original_param_row: strip_reinforcement_level(equipment_param_id as u32),
                 original_equipment_param_id: equipment_param_id,
                 original_item_id: equipment_entry_item_id(equipment, slot),
+                original_gem: capture_slot_gem_backup(slot),
             }
         })
         .collect::<Vec<_>>();
@@ -533,6 +558,7 @@ fn restore_equipped_slot_items(backup: &WeaponRandomizerBackup) {
         let weapon_handle = equipment.chr_asm.gaitem_handles[chr_asm_index];
         sync_equipped_inventory_item_id(equipment, weapon_handle, slot_backup.original_item_id);
         sync_weapon_gaitem_item_id(weapon_handle, slot_backup.original_item_id);
+        restore_slot_gem_attachment(slot, slot_backup.original_gem);
 
         log_event(format!(
             "restored slot item: slot={slot:?}, item_id={:?}, equipment_param_id={}",
@@ -559,14 +585,20 @@ fn collect_weapon_candidates(
                 return None;
             };
 
+            let unique = weapon.material_set_id() == 2200;
+
             if weapon.wep_type() == 0 {
                 zero_wep_type_rows += 1;
                 return None;
             }
 
+            if unique && !config.include_unique_weapons {
+                return None;
+            }
+
             Some(WeaponCandidate {
                 base_param_id: param_id,
-                unique: weapon.material_set_id() == 2200,
+                unique,
                 icon_id: weapon.icon_id(),
                 sword_art_id: weapon.sword_arts_param_id(),
                 wep_type: weapon.wep_type(),
@@ -580,10 +612,11 @@ fn collect_weapon_candidates(
 fn choose_ash_for_weapon(
     params: &SoloParamRepository,
     weapon: WeaponCandidate,
+    ignore_compatibility: bool,
     rng: &mut impl Rng,
 ) -> Option<AshCandidate> {
-    // 特殊/失色武器通常有固定战技，这里不随机它们的战灰。
-    if weapon.unique {
+    // 默认情况下，特殊/失色武器通常有固定战技，这里不随机它们的战灰。
+    if weapon.unique && !ignore_compatibility {
         return None;
     }
 
@@ -593,7 +626,7 @@ fn choose_ash_for_weapon(
         .filter(|(gem_param_id, ash)| {
             *gem_param_id >= 10_000
                 && ash.sword_arts_param_id() >= 0
-                && can_mount_ash(ash, weapon.wep_type)
+                && (ignore_compatibility || can_mount_ash(ash, weapon.wep_type))
         })
         .map(|(gem_param_id, ash)| AshCandidate {
             gem_param_id: Some(gem_param_id),
@@ -602,7 +635,25 @@ fn choose_ash_for_weapon(
         })
         .collect::<Vec<_>>();
 
-    ashes.choose(rng).copied()
+    choose_non_default_ash(&ashes, weapon.sword_art_id, rng)
+}
+
+pub fn choose_non_default_ash(
+    ashes: &[AshCandidate],
+    original_sword_art_id: i32,
+    rng: &mut impl Rng,
+) -> Option<AshCandidate> {
+    let non_default = ashes
+        .iter()
+        .copied()
+        .filter(|ash| ash.sword_art_id != original_sword_art_id)
+        .collect::<Vec<_>>();
+
+    if non_default.is_empty() {
+        ashes.choose(rng).copied()
+    } else {
+        non_default.choose(rng).copied()
+    }
 }
 
 fn randomized_weapon_param(
@@ -738,7 +789,6 @@ fn apply_randomized_weapon(
         sword_art_id,
     );
     patch_equipped_gaitem_ash(slot, ash, sword_art_id);
-    log_event("apply complete");
     true
 }
 
@@ -788,10 +838,6 @@ fn sync_equipped_inventory_item_id(
     // 装备栏 UI 会读 inventory entry；只改 chr_asm 时，手里模型会变，但背包图标/详情可能不变。
     for entry in equipment.equip_inventory_data.items_data.items_mut() {
         if entry.gaitem_handle == weapon_handle {
-            log_event(format!(
-                "sync inventory entry: handle={weapon_handle}, old_item_id={:?}, new_item_id={item_id:?}",
-                entry.item_id
-            ));
             entry.item_id = item_id;
             found = true;
             break;
@@ -827,10 +873,6 @@ fn sync_weapon_gaitem_item_id(weapon_handle: GaitemHandle, item_id: ItemId) {
         return;
     };
 
-    log_event(format!(
-        "sync weapon gaitem: handle={weapon_handle}, old_item_id={:?}, new_item_id={item_id:?}",
-        weapon_gaitem.gaitem_ins.item_id
-    ));
     weapon_gaitem.gaitem_ins.item_id = item_id.into();
 }
 
@@ -860,18 +902,11 @@ fn replace_equipped_weapon_param(
         return;
     };
 
-    log_event(format!(
-        "replacing weapon param row: target={target_param_id}, source={source_param_id}, old_icon={}, old_sword_art={}, new_icon={icon_id}, new_sword_art={sword_art_id}",
-        target_weapon.icon_id(),
-        target_weapon.sword_arts_param_id()
-    ));
-
     // 直接覆盖原装备 row，背包详情页会读到新武器的补正、重量、属性需求等完整字段。
     // 战技仍然用本轮随机出来的战灰覆盖，因为 source row 自己通常还是武器默认战技。
     write_weapon_param_from_bytes(target_weapon, &source_bytes);
     target_weapon.set_icon_id(icon_id);
     target_weapon.set_sword_arts_param_id(sword_art_id);
-    log_event("param replacement complete");
 }
 
 fn weapon_param_to_bytes(weapon: &EQUIP_PARAM_WEAPON_ST) -> Vec<u8> {
@@ -921,50 +956,8 @@ fn patch_equipped_gaitem_ash(
         .chr_asm
         .gaitem_handles[chr_asm_index];
 
-    log_event(format!(
-        "gaitem slot lookup: slot={slot:?}, chr_asm_index={chr_asm_index}, weapon_handle={weapon_handle}"
-    ));
-
     let Ok(gaitems) = (unsafe { CSGaitemImp::instance_mut() }) else {
         log_event("gaitem ash patch skipped: CSGaitemImp::instance failed");
-        return;
-    };
-
-    let Some(weapon_gaitem) = gaitems.gaitem_ins_by_handle_mut(&weapon_handle) else {
-        log_event("gaitem ash patch skipped: weapon gaitem handle not found");
-        return;
-    };
-
-    let Some(weapon_gaitem) = weapon_gaitem.as_subclass_mut::<CSWepGaitemIns>() else {
-        log_event(format!(
-            "gaitem ash patch skipped: handle is not CSWepGaitemIns, item_id={:?}",
-            weapon_gaitem.item_id
-        ));
-        return;
-    };
-
-    let weapon_item_id = weapon_gaitem.gaitem_ins.item_id;
-    let gem_handle = weapon_gaitem.gem_slot_table.gem_slots[0].gaitem_handle;
-    log_event(format!(
-        "weapon gaitem: item_id={:?}, gem_handle={gem_handle}",
-        weapon_item_id
-    ));
-
-    if gem_handle.0 == 0 {
-        log_event("gaitem ash patch skipped: weapon has no gem handle in slot 0");
-        return;
-    }
-
-    let Some(gem_gaitem) = gaitems.gaitem_ins_by_handle_mut(&gem_handle) else {
-        log_event("gaitem ash patch skipped: gem gaitem handle not found");
-        return;
-    };
-
-    let Some(gem_gaitem) = gem_gaitem.as_subclass_mut::<CSGemGaitemIns>() else {
-        log_event(format!(
-            "gaitem ash patch skipped: gem handle is not CSGemGaitemIns, item_id={:?}",
-            gem_gaitem.item_id
-        ));
         return;
     };
 
@@ -991,16 +984,215 @@ fn patch_equipped_gaitem_ash(
         return;
     };
 
-    log_event(format!(
-        "patching gem gaitem: old_item_id={:?}, new_gem_id={}, sword_art={}, old_weapon_handle={}, new_weapon_handle={weapon_handle}",
-        gem_gaitem.gaitem_ins.item_id, gem_param_id, ash.sword_art_id, gem_gaitem.weapon_handle
-    ));
+    let Some((_weapon_item_id, mut gem_handle)) =
+        read_weapon_gaitem_state(gaitems, weapon_handle)
+    else {
+        return;
+    };
 
-    // DLC 后战灰更像是武器实例上的“宝石/Gem 道具”状态；只改武器 param
-    // 可能足够更新图标，但战技名和实际施放可能仍会继续读这个 gem gaitem。
+    if gem_handle.0 == 0 {
+        if let Some(reused_handle) = find_reusable_gem_handle(gaitems, gem_item_id) {
+            if attach_gem_handle_to_weapon(gaitems, weapon_handle, reused_handle) {
+                gem_handle = reused_handle;
+            }
+        } else {
+            log_event(format!(
+                "gaitem ash patch skipped: no reusable gem gaitem found for gem_id={gem_param_id}"
+            ));
+            return;
+        }
+
+        if gem_handle.0 == 0 {
+            log_event("gaitem ash patch skipped: weapon has no gem handle in slot 0");
+            return;
+        }
+    };
+
+    if !patch_gem_gaitem(gaitems, gem_handle, gem_item_id, weapon_handle) {
+        return;
+    }
+}
+
+fn capture_slot_gem_backup(slot: WeaponSlot) -> Option<GemAttachmentBackup> {
+    let chr_asm_index = slot.chr_asm_index();
+    let Ok(game_data) = (unsafe { GameDataMan::instance() }) else {
+        log_event("gem backup skipped: GameDataMan::instance failed");
+        return None;
+    };
+
+    let weapon_handle = game_data
+        .main_player_game_data
+        .equipment
+        .chr_asm
+        .gaitem_handles[chr_asm_index];
+
+    let Ok(gaitems) = (unsafe { CSGaitemImp::instance_mut() }) else {
+        log_event("gem backup skipped: CSGaitemImp::instance failed");
+        return None;
+    };
+
+    let Some((_weapon_item_id, gem_handle)) = read_weapon_gaitem_state(gaitems, weapon_handle) else {
+        return None;
+    };
+
+    if gem_handle.0 == 0 {
+        return None;
+    }
+
+    let Some(gem_gaitem) = gaitems.gaitem_ins_by_handle_mut(&gem_handle) else {
+        log_event("gem backup skipped: gem gaitem handle not found");
+        return None;
+    };
+
+    let Some(gem_gaitem) = gem_gaitem.as_subclass_mut::<CSGemGaitemIns>() else {
+        log_event("gem backup skipped: gem handle is not CSGemGaitemIns");
+        return None;
+    };
+
+    Some(GemAttachmentBackup {
+        handle: gem_handle,
+        item_id: gem_gaitem.gaitem_ins.item_id,
+        weapon_handle: gem_gaitem.weapon_handle,
+    })
+}
+
+fn restore_slot_gem_attachment(slot: WeaponSlot, original_gem: Option<GemAttachmentBackup>) {
+    let chr_asm_index = slot.chr_asm_index();
+    let Ok(game_data) = (unsafe { GameDataMan::instance() }) else {
+        log_event("restore gem skipped: GameDataMan::instance failed");
+        return;
+    };
+
+    let weapon_handle = game_data
+        .main_player_game_data
+        .equipment
+        .chr_asm
+        .gaitem_handles[chr_asm_index];
+
+    let Ok(gaitems) = (unsafe { CSGaitemImp::instance_mut() }) else {
+        log_event("restore gem skipped: CSGaitemImp::instance failed");
+        return;
+    };
+
+    let Some(weapon_gaitem) = gaitems.gaitem_ins_by_handle_mut(&weapon_handle) else {
+        log_event("restore gem skipped: weapon gaitem handle not found");
+        return;
+    };
+
+    let Some(weapon_gaitem) = weapon_gaitem.as_subclass_mut::<CSWepGaitemIns>() else {
+        log_event("restore gem skipped: weapon handle is not CSWepGaitemIns");
+        return;
+    };
+
+    let restored_handle = original_gem.map(|gem| gem.handle).unwrap_or(GaitemHandle(0));
+    weapon_gaitem.gem_slot_table.gem_slots[0].gaitem_handle = restored_handle;
+
+    let Some(original_gem) = original_gem else {
+        log_event(format!(
+            "restored gem attachment: slot={slot:?}, gem_handle=none"
+        ));
+        return;
+    };
+
+    let Some(gem_gaitem) = gaitems.gaitem_ins_by_handle_mut(&original_gem.handle) else {
+        log_event("restore gem skipped: original gem gaitem handle not found");
+        return;
+    };
+
+    let Some(gem_gaitem) = gem_gaitem.as_subclass_mut::<CSGemGaitemIns>() else {
+        log_event("restore gem skipped: original gem handle is not CSGemGaitemIns");
+        return;
+    };
+
+    gem_gaitem.gaitem_ins.item_id = original_gem.item_id;
+    gem_gaitem.weapon_handle = original_gem.weapon_handle;
+    log_event(format!(
+        "restored gem attachment: slot={slot:?}, gem_handle={}, item_id={:?}, weapon_handle={}",
+        original_gem.handle, original_gem.item_id, original_gem.weapon_handle
+    ));
+}
+
+fn read_weapon_gaitem_state(
+    gaitems: &mut CSGaitemImp,
+    weapon_handle: GaitemHandle,
+) -> Option<(OptionalItemId, GaitemHandle)> {
+    let Some(weapon_gaitem) = gaitems.gaitem_ins_by_handle_mut(&weapon_handle) else {
+        log_event("gaitem ash patch skipped: weapon gaitem handle not found");
+        return None;
+    };
+
+    let Some(weapon_gaitem) = weapon_gaitem.as_subclass_mut::<CSWepGaitemIns>() else {
+        log_event(format!(
+            "gaitem ash patch skipped: handle is not CSWepGaitemIns, item_id={:?}",
+            weapon_gaitem.item_id
+        ));
+        return None;
+    };
+
+    Some((
+        weapon_gaitem.gaitem_ins.item_id,
+        // ER 武器只有 1 个 gem 槽；这里拿到的是当前绑定在武器实例上的战灰句柄。
+        weapon_gaitem.gem_slot_table.gem_slots[0].gaitem_handle,
+    ))
+}
+
+fn find_reusable_gem_handle(gaitems: &CSGaitemImp, gem_item_id: ItemId) -> Option<GaitemHandle> {
+    gaitems.gaitems.iter().filter_map(|entry| entry.as_ref()).find_map(|entry| {
+        let gaitem = entry.as_ref();
+        let gem_gaitem = gaitem.as_subclass::<CSGemGaitemIns>()?;
+        let item_id = gem_gaitem.gaitem_ins.item_id.as_valid()?;
+        if item_id == gem_item_id {
+            Some(gem_gaitem.gaitem_ins.gaitem_handle)
+        } else {
+            None
+        }
+    })
+}
+
+fn attach_gem_handle_to_weapon(
+    gaitems: &mut CSGaitemImp,
+    weapon_handle: GaitemHandle,
+    gem_handle: GaitemHandle,
+) -> bool {
+    let Some(weapon_gaitem) = gaitems.gaitem_ins_by_handle_mut(&weapon_handle) else {
+        log_event("attach gem handle skipped: weapon gaitem handle not found");
+        return false;
+    };
+
+    let Some(weapon_gaitem) = weapon_gaitem.as_subclass_mut::<CSWepGaitemIns>() else {
+        log_event("attach gem handle skipped: weapon handle is not CSWepGaitemIns");
+        return false;
+    };
+
+    // 游戏有时不会自动给“被热替换”的武器实例补 gem 句柄。
+    // 这里把一个已存在的 gem 实例挂回当前武器，让后续战灰同步有落点。
+    weapon_gaitem.gem_slot_table.gem_slots[0].gaitem_handle = gem_handle;
+    true
+}
+
+fn patch_gem_gaitem(
+    gaitems: &mut CSGaitemImp,
+    gem_handle: GaitemHandle,
+    gem_item_id: ItemId,
+    weapon_handle: GaitemHandle,
+) -> bool {
+    let Some(gem_gaitem) = gaitems.gaitem_ins_by_handle_mut(&gem_handle) else {
+        log_event("gaitem ash patch skipped: gem gaitem handle not found");
+        return false;
+    };
+
+    let Some(gem_gaitem) = gem_gaitem.as_subclass_mut::<CSGemGaitemIns>() else {
+        log_event(format!(
+            "gaitem ash patch skipped: gem handle is not CSGemGaitemIns, item_id={:?}",
+            gem_gaitem.item_id
+        ));
+        return false;
+    };
+
+    // 一旦 gem 句柄已经挂到当前武器上，真正切换战灰就是改这个 gem 实例的 item_id。
     gem_gaitem.gaitem_ins.item_id = gem_item_id.into();
     gem_gaitem.weapon_handle = weapon_handle;
-    log_event("gaitem ash patch complete");
+    true
 }
 
 fn strip_reinforcement_level(param_id: u32) -> u32 {

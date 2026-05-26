@@ -22,9 +22,17 @@ pub struct WeaponRandomizerConfig {
     pub allow_left_hand: bool,
     #[serde(alias = "enable_right_hand")]
     pub allow_right_hand: bool,
+    /// 是否允许失色/特殊武器进入随机武器池。
+    pub include_unique_weapons: bool,
     pub randomize_interval_seconds: u64,
+    /// 是否给当前随机到的武器再随机一份战灰。
     pub randomize_ashes: bool,
+    /// 打开后忽略战灰兼容性限制，并允许失色/特殊武器也被强制装上战灰。
+    pub ignore_ash_compatibility: bool,
+    /// 调试模式：武器和战灰都固定走一个很小的测试池。
     pub debug_fixed_pool: bool,
+    /// 调试模式：武器仍走正常大池，但战灰只从小测试池里挑。
+    pub debug_fixed_ash_pool: bool,
     pub scale_to_player_level_cap: u32,
     pub enabled_wepmotion_categories: Vec<u16>,
     pub toggle_left_virtual_key: i32,
@@ -61,9 +69,12 @@ impl Default for WeaponRandomizerConfig {
         Self {
             allow_left_hand: true,
             allow_right_hand: true,
+            include_unique_weapons: true,
             randomize_interval_seconds: 5,
             randomize_ashes: true,
+            ignore_ash_compatibility: false,
             debug_fixed_pool: false,
+            debug_fixed_ash_pool: false,
             scale_to_player_level_cap: 80,
             enabled_wepmotion_categories: default_weapon_categories(),
             toggle_left_virtual_key: 0x70,
