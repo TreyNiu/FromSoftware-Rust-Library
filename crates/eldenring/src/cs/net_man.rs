@@ -259,91 +259,44 @@ pub struct CSBattleRoyalContext {
     unkf4: u32,
 }
 
-#[repr(u32)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-/// Enum describing various quickmatch (arena) gamemode settings
-pub enum QuickMatchSettings {
-    Duel = 0,
-    Brawl1v1 = 1,
-    Brawl2v2 = 2,
-    Brawl3v3 = 3,
-    Team1v1 = 4,
-    Team2v2 = 5,
-    Team3v3 = 6,
-    AlliesPasswordTeam1v1 = 7,
-    AlliesPasswordTeam2v2 = 8,
-    AlliesPasswordTeam3v3 = 9,
-    SpiritAshesDuel = 10,
-    SpiritAshesBrawl1v1 = 11,
-    SpiritAshesBrawl2v2 = 12,
-    SpiritAshesBrawl3v3 = 13,
-    SpiritAshesTeam1v1 = 14,
-    SpiritAshesTeam2v2 = 15,
-    SpiritAshesTeam3v3 = 16,
-    SpiritAshesAlliesPasswordTeam1v1 = 17,
-    SpiritAshesAlliesPasswordTeam2v2 = 18,
-    SpiritAshesAlliesPasswordTeam3v3 = 19,
+pub enum QuickMatchSize {
+    /// Special case for Duel.
+    Duel,
+    /// One player vs one player in brawl or team mode with no additional allies.
+    OneVsOne,
+    TwoVsTwo,
+    ThreeVsThree,
 }
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct QuickMatchSettings(pub u32);
 
 impl QuickMatchSettings {
     /// Whether or not this gamemode allows spirit ashes summoning.
-    pub const fn spirit_ashes_allowed(&self) -> bool {
-        matches!(
-            self,
-            QuickMatchSettings::SpiritAshesDuel
-                | QuickMatchSettings::SpiritAshesBrawl1v1
-                | QuickMatchSettings::SpiritAshesBrawl2v2
-                | QuickMatchSettings::SpiritAshesBrawl3v3
-                | QuickMatchSettings::SpiritAshesTeam1v1
-                | QuickMatchSettings::SpiritAshesTeam2v2
-                | QuickMatchSettings::SpiritAshesTeam3v3
-                | QuickMatchSettings::SpiritAshesAlliesPasswordTeam1v1
-                | QuickMatchSettings::SpiritAshesAlliesPasswordTeam2v2
-                | QuickMatchSettings::SpiritAshesAlliesPasswordTeam3v3
-        )
+    pub const fn spirit_ashes_allowed(self) -> bool {
+        self.0 >= 10
+    }
+    /// Whether or not this gamemode is brawl mode.
+    pub const fn is_brawl_mode(self) -> bool {
+        matches!(self.0 % 10, 1..=3)
     }
     /// Whether or not this gamemode is team-based.
-    pub const fn is_team_mode(&self) -> bool {
-        matches!(
-            self,
-            QuickMatchSettings::Team1v1
-                | QuickMatchSettings::Team2v2
-                | QuickMatchSettings::Team3v3
-                | QuickMatchSettings::AlliesPasswordTeam1v1
-                | QuickMatchSettings::AlliesPasswordTeam2v2
-                | QuickMatchSettings::AlliesPasswordTeam3v3
-                | QuickMatchSettings::SpiritAshesTeam1v1
-                | QuickMatchSettings::SpiritAshesTeam2v2
-                | QuickMatchSettings::SpiritAshesTeam3v3
-                | QuickMatchSettings::SpiritAshesAlliesPasswordTeam1v1
-                | QuickMatchSettings::SpiritAshesAlliesPasswordTeam2v2
-                | QuickMatchSettings::SpiritAshesAlliesPasswordTeam3v3
-        )
+    pub const fn is_team_mode(self) -> bool {
+        matches!(self.0 % 10, 4..=9)
     }
     /// Whether or not this gamemode uses password for match you with your allies.
     /// Compared to just being password protected lobby where password doesn't affect team composition.
-    pub const fn is_allies_password_mode(&self) -> bool {
-        matches!(
-            self,
-            QuickMatchSettings::AlliesPasswordTeam1v1
-                | QuickMatchSettings::AlliesPasswordTeam2v2
-                | QuickMatchSettings::AlliesPasswordTeam3v3
-                | QuickMatchSettings::SpiritAshesAlliesPasswordTeam1v1
-                | QuickMatchSettings::SpiritAshesAlliesPasswordTeam2v2
-                | QuickMatchSettings::SpiritAshesAlliesPasswordTeam3v3
-        )
+    pub const fn is_allies_password_mode(self) -> bool {
+        matches!(self.0 % 10, 7..=9)
     }
-    /// Whether or not this gamemode is a brawl (free-for-all) mode.
-    pub const fn is_brawl_mode(&self) -> bool {
-        matches!(
-            self,
-            QuickMatchSettings::Brawl1v1
-                | QuickMatchSettings::Brawl2v2
-                | QuickMatchSettings::Brawl3v3
-                | QuickMatchSettings::SpiritAshesBrawl1v1
-                | QuickMatchSettings::SpiritAshesBrawl2v2
-                | QuickMatchSettings::SpiritAshesBrawl3v3
-        )
+    pub const fn match_size(self) -> QuickMatchSize {
+        match self.0 % 10 {
+            1 | 4 | 7 => QuickMatchSize::OneVsOne,
+            2 | 5 | 8 => QuickMatchSize::TwoVsTwo,
+            3 | 6 | 9 => QuickMatchSize::ThreeVsThree,
+            _ => QuickMatchSize::Duel,
+        }
     }
 }
 

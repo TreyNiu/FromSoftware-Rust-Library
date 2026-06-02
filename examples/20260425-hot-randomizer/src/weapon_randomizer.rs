@@ -1004,8 +1004,7 @@ fn patch_equipped_gaitem_ash(
         return;
     };
 
-    let Some((_weapon_item_id, mut gem_handle)) =
-        read_weapon_gaitem_state(gaitems, weapon_handle)
+    let Some((_weapon_item_id, mut gem_handle)) = read_weapon_gaitem_state(gaitems, weapon_handle)
     else {
         return;
     };
@@ -1051,7 +1050,8 @@ fn capture_slot_gem_backup(slot: WeaponSlot) -> Option<GemAttachmentBackup> {
         return None;
     };
 
-    let Some((_weapon_item_id, gem_handle)) = read_weapon_gaitem_state(gaitems, weapon_handle) else {
+    let Some((_weapon_item_id, gem_handle)) = read_weapon_gaitem_state(gaitems, weapon_handle)
+    else {
         return None;
     };
 
@@ -1104,7 +1104,9 @@ fn restore_slot_gem_attachment(slot: WeaponSlot, original_gem: Option<GemAttachm
         return;
     };
 
-    let restored_handle = original_gem.map(|gem| gem.handle).unwrap_or(GaitemHandle(0));
+    let restored_handle = original_gem
+        .map(|gem| gem.handle)
+        .unwrap_or(GaitemHandle(0));
     weapon_gaitem.gem_slot_table.gem_slots[0].gaitem_handle = restored_handle;
 
     let Some(original_gem) = original_gem else {
@@ -1157,16 +1159,20 @@ fn read_weapon_gaitem_state(
 }
 
 fn find_reusable_gem_handle(gaitems: &CSGaitemImp, gem_item_id: ItemId) -> Option<GaitemHandle> {
-    gaitems.gaitems.iter().filter_map(|entry| entry.as_ref()).find_map(|entry| {
-        let gaitem = entry.as_ref();
-        let gem_gaitem = gaitem.as_subclass::<CSGemGaitemIns>()?;
-        let item_id = gem_gaitem.gaitem_ins.item_id.as_valid()?;
-        if item_id == gem_item_id {
-            Some(gem_gaitem.gaitem_ins.gaitem_handle)
-        } else {
-            None
-        }
-    })
+    gaitems
+        .gaitems
+        .iter()
+        .filter_map(|entry| entry.as_ref())
+        .find_map(|entry| {
+            let gaitem = entry.as_ref();
+            let gem_gaitem = gaitem.as_subclass::<CSGemGaitemIns>()?;
+            let item_id = gem_gaitem.gaitem_ins.item_id.as_valid()?;
+            if item_id == gem_item_id {
+                Some(gem_gaitem.gaitem_ins.gaitem_handle)
+            } else {
+                None
+            }
+        })
 }
 
 fn attach_gem_handle_to_weapon(

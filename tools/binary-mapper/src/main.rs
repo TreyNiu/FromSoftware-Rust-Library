@@ -48,11 +48,11 @@ struct MapArgs {
 /// Shortcut to map all files for Elden Ring.
 #[derive(Args)]
 struct EldenRingArgs {
-    /// The worldwide EXE for patch 2.6.1.
+    /// The worldwide EXE for patch 2.6.2.
     #[arg(long, env("MAPPER_ER_WW_EXE"))]
     ww_exe: PathBuf,
 
-    /// The Japanese EXE for patch 2.6.1.1.
+    /// The Japanese EXE for patch 2.6.2.1.
     #[arg(long, env("MAPPER_ER_JP_EXE"))]
     jp_exe: PathBuf,
 
