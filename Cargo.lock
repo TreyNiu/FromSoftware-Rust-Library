@@ -1886,6 +1886,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "weapon-randomizer-bom"
+version = "0.14.0"
+dependencies = [
+ "eldenring",
+ "fromsoftware-shared",
+ "rand",
+ "serde",
+ "toml",
+ "windows 0.61.3",
+]
+
+[[package]]
 name = "winapi"
 version = "0.3.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
