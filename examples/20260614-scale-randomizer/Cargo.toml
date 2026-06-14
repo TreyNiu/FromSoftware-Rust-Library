@@ -1,0 +1,18 @@
+[package]
+name = "scale-randomizer"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+eldenring.workspace = true
+fromsoftware-shared.workspace = true
+rand = "0.9"
+rust-ini = "0.21.3"
+windows = { workspace = true, features = ["Win32_System_LibraryLoader"] }
+notify = "6"
+
+[lib]
+crate-type = ["cdylib"]
