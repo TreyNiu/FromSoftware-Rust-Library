@@ -1,8 +1,8 @@
 use std::{
     ffi::c_void,
+    fmt::Write as _,
     fs,
     path::{Path, PathBuf},
-    fmt::Write as _,
     time::SystemTime,
 };
 
@@ -47,6 +47,7 @@ pub struct WeaponRandomizerConfig {
     /// 打开后忽略战灰兼容性限制，并允许失色/特殊武器也被强制装上战灰。
     #[serde(skip)]
     pub ignore_ash_compatibility: bool,
+    pub random_seed: u64,
     pub scale_to_player_level_cap: u32,
     pub enabled_wepmotion_categories: Vec<u16>,
     pub toggle_left_virtual_key: i32,
@@ -69,8 +70,9 @@ impl Default for WeaponRandomizerConfig {
             allow_right_hand: true,
             include_unique_weapons: true,
             randomize_interval_seconds: 5,
-            randomize_ashes: true,
+            randomize_ashes: false,
             ignore_ash_compatibility: true,
+            random_seed: 20260614,
             scale_to_player_level_cap: 80,
             enabled_wepmotion_categories: default_weapon_categories(),
             toggle_left_virtual_key: 0x70,
@@ -163,6 +165,7 @@ fn render_default_config(config: &WeaponRandomizerBomConfig) -> String {
         weapon.randomize_interval_seconds
     )
     .ok();
+    writeln!(text, "random_seed = {}", weapon.random_seed).ok();
     writeln!(
         text,
         "scale_to_player_level_cap = {}",
@@ -193,6 +196,7 @@ mod tests {
         assert!(text.contains("allow_left_hand = true"));
         assert!(text.contains("allow_right_hand = true"));
         assert!(text.contains("randomize_interval_seconds = 5"));
+        assert!(text.contains("random_seed = 20260614"));
         assert!(text.contains("enabled_wepmotion_categories = [20, 21, 22"));
         assert!(!text.contains("include_unique_weapons"));
         assert!(!text.contains("randomize_ashes"));
@@ -224,8 +228,9 @@ mod tests {
         assert!(config.weapon.allow_left_hand);
         assert!(config.weapon.allow_right_hand);
         assert!(config.weapon.include_unique_weapons);
-        assert!(config.weapon.randomize_ashes);
+        assert!(!config.weapon.randomize_ashes);
         assert!(config.weapon.ignore_ash_compatibility);
+        assert_eq!(config.weapon.random_seed, 20260614);
 
         let _ = fs::remove_file(&path);
         let _ = fs::remove_dir(&temp_dir);
