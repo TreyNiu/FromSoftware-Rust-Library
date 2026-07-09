@@ -443,6 +443,44 @@ impl<T: DLStringKind, S: AsRef<str>> PartialEq<S> for DLString<T> {
     }
 }
 
+impl<T: DLStringKind> Ord for DLString<T>
+where
+    T::Unit: Ord,
+{
+    #[inline]
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.base.cmp(&other.base)
+    }
+}
+
+impl<T: DLStringKind, U: DLStringKind> PartialOrd<DLString<U>> for DLString<T> {
+    #[inline]
+    fn partial_cmp(&self, other: &DLString<U>) -> Option<std::cmp::Ordering> {
+        if T::ENCODING == U::ENCODING {
+            self.base.as_bytes().partial_cmp(other.base.as_bytes())
+        } else {
+            match (self.to_string(), other.to_string()) {
+                (Ok(a), Ok(b)) => a.partial_cmp(&b),
+                _ => None,
+            }
+        }
+    }
+}
+
+impl<T: DLStringKind, S: AsRef<str>> PartialOrd<S> for DLString<T> {
+    #[inline]
+    fn partial_cmp(&self, other: &S) -> Option<std::cmp::Ordering> {
+        if T::ENCODING == DLCharacterSet::UTF8 {
+            self.base.as_bytes().partial_cmp(other.as_ref().as_bytes())
+        } else {
+            self.to_string()
+                .ok()
+                .as_deref()
+                .partial_cmp(&Some(other.as_ref()))
+        }
+    }
+}
+
 impl<T: DLStringKind> Hash for DLString<T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         T::ENCODING.hash(state);
@@ -518,6 +556,51 @@ impl<T: DLStringKind, U: DLStringKind> PartialEq<DLRawString<U>> for DLRawString
 
 impl<T: DLStringKind> Eq for DLRawString<T> {}
 
+impl<T: DLStringKind> Ord for DLRawString<T>
+where
+    T::Unit: Ord,
+{
+    #[inline]
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.units().cmp(other.units())
+    }
+}
+
+impl<T: DLStringKind, U: DLStringKind> PartialOrd<DLRawString<U>> for DLRawString<T> {
+    #[inline]
+    fn partial_cmp(&self, other: &DLRawString<U>) -> Option<std::cmp::Ordering> {
+        if T::ENCODING == U::ENCODING {
+            self.as_bytes().partial_cmp(other.as_bytes())
+        } else {
+            match (self.to_string(), other.to_string()) {
+                (Ok(a), Ok(b)) => a.partial_cmp(&b),
+                _ => None,
+            }
+        }
+    }
+}
+
+impl<T: DLStringKind, S: AsRef<str>> PartialOrd<S> for DLRawString<T> {
+    #[inline]
+    fn partial_cmp(&self, other: &S) -> Option<std::cmp::Ordering> {
+        if T::ENCODING == DLCharacterSet::UTF8 {
+            self.as_bytes().partial_cmp(other.as_ref().as_bytes())
+        } else {
+            self.to_string()
+                .ok()
+                .as_deref()
+                .partial_cmp(&Some(other.as_ref()))
+        }
+    }
+}
+
+impl<T: DLStringKind> Hash for DLRawString<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        T::ENCODING.hash(state);
+        self.units().hash(state);
+    }
+}
+
 impl<T: DLStringKind> fmt::Display for DLRawString<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.to_string() {
@@ -582,6 +665,38 @@ impl<T: DLStringKind, U: DLStringKind, const N: usize, const M: usize> PartialEq
 }
 
 impl<T: DLStringKind, const N: usize> Eq for DLInplaceStr<T, N> {}
+
+impl<T: DLStringKind, const N: usize> Ord for DLInplaceStr<T, N>
+where
+    T::Unit: Ord,
+{
+    #[inline]
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.base.cmp(&other.base)
+    }
+}
+
+impl<T: DLStringKind, U: DLStringKind, const N: usize, const M: usize>
+    PartialOrd<DLInplaceStr<U, M>> for DLInplaceStr<T, N>
+{
+    #[inline]
+    fn partial_cmp(&self, other: &DLInplaceStr<U, M>) -> Option<std::cmp::Ordering> {
+        self.base.partial_cmp(&other.base)
+    }
+}
+
+impl<T: DLStringKind, const N: usize, S: AsRef<str>> PartialOrd<S> for DLInplaceStr<T, N> {
+    #[inline]
+    fn partial_cmp(&self, other: &S) -> Option<std::cmp::Ordering> {
+        self.base.partial_cmp(other)
+    }
+}
+
+impl<T: DLStringKind, const N: usize> Hash for DLInplaceStr<T, N> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.base.hash(state);
+    }
+}
 
 impl<T: DLStringKind, const N: usize> fmt::Display for DLInplaceStr<T, N> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

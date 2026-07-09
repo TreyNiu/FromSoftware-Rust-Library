@@ -101,6 +101,10 @@ vftable = "cstask_group_ins_vmt"
 class = "CSTeamTypeNeutral"
 vftable = "csteam_type_base_vmt"
 
+[[patterns]]
+pattern = "48 8b 05 ${ ' } 48 85 c0 48 0f 44 c6 "
+captures = ["", "field_area_ptr"]
+
 [[vmts]]
 class = "CSTeamTypeEnemy"
 vftable = "csteam_type_enemy_vmt"

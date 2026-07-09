@@ -8,6 +8,13 @@ use super::{DebugDisplay, DisplayUiExt};
 impl DebugDisplay for FieldArea {
     fn render_debug(&self, ui: &Ui) {
         ui.nested("World Info Owner", &self.world_info_owner);
+        ui.display(
+            "Enable Fast Travel Event Flag",
+            self.enable_fast_travel_event_flag,
+        );
+        ui.display("Map Place Name ID", self.map_place_name_id);
+        ui.display("Save Map Name ID", self.save_map_name_id);
+        ui.display("Current Play Region ID", self.current_play_region_id);
     }
 }
 

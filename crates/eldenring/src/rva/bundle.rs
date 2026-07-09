@@ -79,6 +79,7 @@ pub struct RvaBundle {
     pub fd4res_cap_vmt: u32,
     pub fd4res_rep_vmt: u32,
     pub fd4task_base_vmt: u32,
+    pub field_area_ptr: u32,
     pub game_data_man: u32,
     pub game_man: u32,
     pub global_hinstance: u32,
