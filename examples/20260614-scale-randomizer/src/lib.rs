@@ -13,9 +13,8 @@ use config::{ScaleRandomizerOptions, get_config_path, read_write_ini, start_hot_
 use eldenring::{
     cs::{CSTaskGroupIndex, CSTaskImp},
     fd4::FD4TaskData,
-    util::system::wait_for_system_init,
 };
-use fromsoftware_shared::{FromStatic, Program, SharedTaskImpExt};
+use fromsoftware_shared::{FromStatic, SharedTaskImpExt};
 use rand::Rng;
 
 static LAST_WRITTEN_SCALE: Mutex<Option<u32>> = Mutex::new(None);
@@ -31,10 +30,8 @@ pub unsafe extern "C" fn DllMain(hmodule: usize, reason: u32) -> bool {
     }
 
     std::thread::spawn(move || {
-        wait_for_system_init(&Program::current(), Duration::MAX)
-            .expect("Could not await system init.");
-
-        let cs_task = unsafe { CSTaskImp::instance().unwrap() };
+        let cs_task =
+            CSTaskImp::wait_for_instance(Duration::MAX).expect("Could not await CSTask instance.");
 
         let config_path = get_config_path(hmodule);
         let config_dir = config_path
