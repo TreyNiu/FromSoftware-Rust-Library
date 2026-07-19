@@ -1,19 +1,41 @@
-use std::{fs::OpenOptions, io::Write};
+use std::{
+    fs::OpenOptions,
+    io::Write,
+    path::PathBuf,
+    sync::{
+        OnceLock,
+        atomic::{AtomicBool, Ordering},
+    },
+};
 
 use windows::Win32::{
     System::{Diagnostics::Debug::MessageBeep, SystemInformation::GetLocalTime},
     UI::WindowsAndMessaging::{MB_ICONHAND, MB_ICONINFORMATION},
 };
 
+static LOG_PATH: OnceLock<PathBuf> = OnceLock::new();
+static LOG_ENABLED: AtomicBool = AtomicBool::new(false);
+
+pub fn initialize_log(log_path: PathBuf, enabled: bool) {
+    let _ = LOG_PATH.set(log_path);
+    set_log_enabled(enabled);
+}
+
+pub fn set_log_enabled(enabled: bool) {
+    LOG_ENABLED.store(enabled, Ordering::Relaxed);
+}
+
 pub fn log_event(message: impl AsRef<str>) {
+    if !LOG_ENABLED.load(Ordering::Relaxed) {
+        return;
+    }
+
+    let Some(log_path) = LOG_PATH.get() else {
+        return;
+    };
     let timestamp = local_timestamp();
 
-    // 日志写在当前工作目录，方便和 DLL 放在一起时直接看 hot-randomizer.log。
-    let Ok(mut file) = OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open("hot-randomizer.log")
-    else {
+    let Ok(mut file) = OpenOptions::new().create(true).append(true).open(log_path) else {
         return;
     };
 

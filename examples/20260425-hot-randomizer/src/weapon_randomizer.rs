@@ -42,7 +42,7 @@ struct WeaponHandState {
 
 impl WeaponRandomizer {
     pub fn new(config: WeaponRandomizerConfig, input_check_interval: Duration) -> Self {
-        let randomize_interval = Duration::from_secs(config.randomize_interval_seconds);
+        let randomize_interval = Duration::from_millis(config.randomize_interval_ms);
 
         Self {
             // 随机器启动时永远不自动开启；必须由按键触发。
@@ -63,10 +63,10 @@ impl WeaponRandomizer {
 
     pub fn update_config(&mut self, config: WeaponRandomizerConfig) {
         log_event(format!("weapon randomizer config reloaded: {config:?}"));
-        if !config.allow_left_hand {
+        if !config.enable_left_hand {
             set_hand_enabled(&mut self.left, false, &config);
         }
-        if !config.allow_right_hand {
+        if !config.enable_right_hand {
             set_hand_enabled(&mut self.right, false, &config);
         }
         self.left.weapon_bag.clear();
@@ -82,13 +82,13 @@ impl WeaponRandomizer {
         self.last_input_check = Instant::now();
 
         let left_pressed = input::is_key_pressed(self.config.toggle_left_virtual_key);
-        if self.config.allow_left_hand && left_pressed && !self.left_toggle_was_pressed {
+        if self.config.enable_left_hand && left_pressed && !self.left_toggle_was_pressed {
             toggle_hand(&mut self.left, &self.config);
         }
         self.left_toggle_was_pressed = left_pressed;
 
         let right_pressed = input::is_key_pressed(self.config.toggle_right_virtual_key);
-        if self.config.allow_right_hand && right_pressed && !self.right_toggle_was_pressed {
+        if self.config.enable_right_hand && right_pressed && !self.right_toggle_was_pressed {
             toggle_hand(&mut self.right, &self.config);
         }
         self.right_toggle_was_pressed = right_pressed;
@@ -155,7 +155,7 @@ fn set_hand_enabled(
 
         // 开启后允许立即随机一次；没有手动开启时不会写玩家数据。
         hand_state.last_randomized =
-            Instant::now() - Duration::from_secs(config.randomize_interval_seconds);
+            Instant::now() - Duration::from_millis(config.randomize_interval_ms);
     } else {
         if let Some(backup) = hand_state.backup.as_ref() {
             restore_weapon_randomizer_backup(backup);
@@ -166,7 +166,7 @@ fn set_hand_enabled(
 }
 
 fn tick_hand(hand_state: &mut WeaponHandState, config: &WeaponRandomizerConfig) {
-    let randomize_interval = Duration::from_secs(config.randomize_interval_seconds);
+    let randomize_interval = Duration::from_millis(config.randomize_interval_ms);
     if !hand_state.enabled || hand_state.last_randomized.elapsed() < randomize_interval {
         return;
     }
