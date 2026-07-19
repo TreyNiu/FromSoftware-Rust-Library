@@ -1,0 +1,109 @@
+mod config;
+mod speed_randomizer;
+
+use std::{
+    panic::{AssertUnwindSafe, catch_unwind},
+    path::PathBuf,
+    time::{Duration, Instant, SystemTime},
+};
+
+use eldenring::{
+    cs::{CSTaskGroupIndex, CSTaskImp},
+    fd4::FD4TaskData,
+    util::system::wait_for_system_init,
+};
+use fromsoftware_shared::{FromStatic, program::Program, task::*};
+
+use crate::{
+    config::{
+        SpeedRandomizerBomConfig, config_modified_time, load_config, load_or_create_config,
+        resolve_paths,
+    },
+    speed_randomizer::SpeedRandomizer,
+};
+
+const CONFIG_RELOAD_INTERVAL: Duration = Duration::from_secs(1);
+const INPUT_CHECK_INTERVAL: Duration = Duration::from_millis(500);
+
+#[unsafe(no_mangle)]
+/// # Safety
+///
+/// This is exposed this way such that Windows LoadLibrary API can call it. Do not call this yourself.
+pub unsafe extern "C" fn DllMain(hmodule: usize, reason: u32) -> bool {
+    if reason != 1 {
+        return true;
+    }
+
+    std::thread::spawn(move || {
+        let paths = resolve_paths(hmodule);
+        let config = load_or_create_config(&paths.config_path);
+
+        if wait_for_system_init(&Program::current(), Duration::MAX).is_err() {
+            return;
+        }
+
+        let Ok(cs_task) = (unsafe { CSTaskImp::instance() }) else {
+            return;
+        };
+
+        let mut state = SpeedRandomizerBomState::new(config, paths.config_path);
+        cs_task.run_recurring(
+            move |_: &FD4TaskData| {
+                let _ = catch_unwind(AssertUnwindSafe(|| {
+                    state.tick();
+                }));
+            },
+            CSTaskGroupIndex::ChrIns_PostPhysics,
+        );
+    });
+
+    true
+}
+
+struct SpeedRandomizerBomState {
+    config_path: PathBuf,
+    config_last_modified: Option<SystemTime>,
+    last_config_check: Instant,
+    speed: SpeedRandomizer,
+}
+
+impl SpeedRandomizerBomState {
+    fn new(config: SpeedRandomizerBomConfig, config_path: PathBuf) -> Self {
+        let config_last_modified = config_modified_time(&config_path);
+
+        Self {
+            config_path,
+            config_last_modified,
+            last_config_check: Instant::now(),
+            speed: SpeedRandomizer::new(&config.speed, INPUT_CHECK_INTERVAL),
+        }
+    }
+
+    fn tick(&mut self) {
+        self.reload_config_if_changed();
+        self.speed.tick(INPUT_CHECK_INTERVAL);
+    }
+
+    fn reload_config_if_changed(&mut self) {
+        if self.last_config_check.elapsed() < CONFIG_RELOAD_INTERVAL {
+            return;
+        }
+        self.last_config_check = Instant::now();
+
+        let modified = config_modified_time(&self.config_path);
+        if modified == self.config_last_modified {
+            return;
+        }
+
+        let Some(config) = (if modified.is_none() {
+            Some(load_or_create_config(&self.config_path))
+        } else {
+            load_config(&self.config_path)
+        }) else {
+            return;
+        };
+
+        self.speed.update_config(&config.speed);
+        self.config_last_modified = config_modified_time(&self.config_path);
+    }
+}
