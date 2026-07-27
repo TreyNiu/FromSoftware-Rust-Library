@@ -11,10 +11,12 @@ use windows::Win32::System::LibraryLoader::GetModuleFileNameW;
 
 pub const CONFIG_FILE_NAME: &str = "speed_randomizer_bom.toml";
 const CONFIG_AUTHOR: &str = "梅琳娜的刀";
+const HTML_FILE_NAME: &str = "speed_randomizer_bom.html";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ModPaths {
     pub config_path: PathBuf,
+    pub html_path: PathBuf,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -31,8 +33,10 @@ pub struct SpeedRandomizerConfig {
     pub global_speed_max_percent: u32,
     pub global_speed_randomize_interval_ms: u64,
     pub enable_player_speed: bool,
-    pub player_speed_min_percent: u32,
-    pub player_speed_max_percent: u32,
+    pub player_speed_pool_1_min_percent: u32,
+    pub player_speed_pool_1_max_percent: u32,
+    pub player_speed_pool_2_min_percent: u32,
+    pub player_speed_pool_2_max_percent: u32,
     pub player_speed_randomize_interval_ms: u64,
     pub toggle_virtual_key: i32,
 }
@@ -53,8 +57,10 @@ impl Default for SpeedRandomizerConfig {
             global_speed_max_percent: 150,
             global_speed_randomize_interval_ms: 5_000,
             enable_player_speed: true,
-            player_speed_min_percent: 50,
-            player_speed_max_percent: 150,
+            player_speed_pool_1_min_percent: 50,
+            player_speed_pool_1_max_percent: 150,
+            player_speed_pool_2_min_percent: 50,
+            player_speed_pool_2_max_percent: 150,
             player_speed_randomize_interval_ms: 5_000,
             toggle_virtual_key: 0x72,
         }
@@ -135,6 +141,7 @@ fn mod_paths_from_dll_path(dll_path: &Path) -> ModPaths {
 
     ModPaths {
         config_path: dll_dir.join(CONFIG_FILE_NAME),
+        html_path: dll_dir.join(HTML_FILE_NAME),
     }
 }
 
@@ -153,6 +160,10 @@ mod tests {
         assert!(text.contains("enable_global_speed = true"));
         assert!(text.contains("global_speed_randomize_interval_ms = 5000"));
         assert!(text.contains("enable_player_speed = true"));
+        assert!(text.contains("player_speed_pool_1_min_percent = 50"));
+        assert!(text.contains("player_speed_pool_1_max_percent = 150"));
+        assert!(text.contains("player_speed_pool_2_min_percent = 50"));
+        assert!(text.contains("player_speed_pool_2_max_percent = 150"));
         assert!(text.contains("player_speed_randomize_interval_ms = 5000"));
         assert!(text.contains("toggle_virtual_key = 114"));
         assert!(!text.contains("[general]"));
@@ -180,6 +191,10 @@ mod tests {
         assert_eq!(
             paths.config_path,
             PathBuf::from(r"D:\Games\EldenRing\mods\speed_randomizer_bom.toml")
+        );
+        assert_eq!(
+            paths.html_path,
+            PathBuf::from(r"D:\Games\EldenRing\mods\speed_randomizer_bom.html")
         );
     }
 }

@@ -23,8 +23,20 @@ pub struct SpeedRandomizer {
     last_input_check: Instant,
     global: SpeedChannelState,
     player: SpeedChannelState,
+    player_uses_first_pool: bool,
     global_was_modified: bool,
     modified_player_behavior_address: Option<usize>,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct SpeedStatus {
+    pub enabled: bool,
+    pub global_enabled: bool,
+    pub global_multiplier: f32,
+    pub global_countdown_ms: Option<u64>,
+    pub player_enabled: bool,
+    pub player_multiplier: f32,
+    pub player_countdown_ms: Option<u64>,
 }
 
 struct SpeedChannelState {
@@ -42,6 +54,7 @@ impl SpeedRandomizer {
             last_input_check: Instant::now() - input_check_interval,
             global: SpeedChannelState::new(),
             player: SpeedChannelState::new(),
+            player_uses_first_pool: true,
             global_was_modified: false,
             modified_player_behavior_address: None,
         }
@@ -67,6 +80,35 @@ impl SpeedRandomizer {
         }
     }
 
+    pub fn status(&self) -> SpeedStatus {
+        let global_enabled = self.enabled && self.config.enable_global_speed;
+        let player_enabled = self.enabled && self.config.enable_player_speed;
+
+        SpeedStatus {
+            enabled: self.enabled,
+            global_enabled,
+            global_multiplier: if global_enabled {
+                self.global.current_multiplier()
+            } else {
+                1.0
+            },
+            global_countdown_ms: global_enabled.then(|| {
+                self.global
+                    .countdown_ms(self.config.global_speed_randomize_interval_ms)
+            }),
+            player_enabled,
+            player_multiplier: if player_enabled {
+                self.player.current_multiplier()
+            } else {
+                1.0
+            },
+            player_countdown_ms: player_enabled.then(|| {
+                self.player
+                    .countdown_ms(self.config.player_speed_randomize_interval_ms)
+            }),
+        }
+    }
+
     pub fn update_config(&mut self, config: &SpeedRandomizerConfig) {
         if self.config == *config {
             return;
@@ -76,6 +118,7 @@ impl SpeedRandomizer {
         self.toggle_was_pressed = false;
         self.global.target_percent = None;
         self.player.target_percent = None;
+        self.player_uses_first_pool = true;
     }
 
     fn update_toggle_state(&mut self, input_check_interval: Duration) {
@@ -89,6 +132,7 @@ impl SpeedRandomizer {
             self.enabled = !self.enabled;
             self.global.target_percent = None;
             self.player.target_percent = None;
+            self.player_uses_first_pool = true;
             beep_toggle(self.enabled);
         }
         self.toggle_was_pressed = pressed;
@@ -115,13 +159,26 @@ impl SpeedRandomizer {
                 .player
                 .should_randomize(self.config.player_speed_randomize_interval_ms)
         {
-            let percent = random_percentage(
-                self.config.player_speed_min_percent,
-                self.config.player_speed_max_percent,
-                &mut rng,
-            );
+            let (min_percent, max_percent) = self.next_player_pool_bounds();
+            let percent = random_percentage(min_percent, max_percent, &mut rng);
             self.player.set_target(percent);
         }
+    }
+
+    fn next_player_pool_bounds(&mut self) -> (u32, u32) {
+        let bounds = if self.player_uses_first_pool {
+            (
+                self.config.player_speed_pool_1_min_percent,
+                self.config.player_speed_pool_1_max_percent,
+            )
+        } else {
+            (
+                self.config.player_speed_pool_2_min_percent,
+                self.config.player_speed_pool_2_max_percent,
+            )
+        };
+        self.player_uses_first_pool = !self.player_uses_first_pool;
+        bounds
     }
 
     fn apply_global_speed(&mut self) {
@@ -215,6 +272,17 @@ impl SpeedChannelState {
         self.target_percent = Some(percent);
         self.last_randomized = Instant::now();
     }
+
+    fn current_multiplier(&self) -> f32 {
+        self.target_percent
+            .map(percentage_to_multiplier)
+            .unwrap_or(1.0)
+    }
+
+    fn countdown_ms(&self, interval_ms: u64) -> u64 {
+        let interval_ms = interval_ms.max(1);
+        interval_ms.saturating_sub(self.last_randomized.elapsed().as_millis() as u64)
+    }
 }
 
 fn random_percentage(min_percent: u32, max_percent: u32, rng: &mut impl Rng) -> u32 {
@@ -250,6 +318,20 @@ mod tests {
         assert_eq!(percentage_to_multiplier(50), 0.5);
         assert_eq!(percentage_to_multiplier(100), 1.0);
         assert_eq!(percentage_to_multiplier(150), 1.5);
+    }
+
+    #[test]
+    fn player_pools_alternate() {
+        let mut config = SpeedRandomizerConfig::default();
+        config.player_speed_pool_1_min_percent = 1;
+        config.player_speed_pool_1_max_percent = 99;
+        config.player_speed_pool_2_min_percent = 150;
+        config.player_speed_pool_2_max_percent = 200;
+        let mut randomizer = SpeedRandomizer::new(&config, Duration::from_millis(500));
+
+        assert_eq!(randomizer.next_player_pool_bounds(), (1, 99));
+        assert_eq!(randomizer.next_player_pool_bounds(), (150, 200));
+        assert_eq!(randomizer.next_player_pool_bounds(), (1, 99));
     }
 
     #[test]

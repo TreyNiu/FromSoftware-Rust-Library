@@ -1,4 +1,5 @@
 mod config;
+mod html_status;
 mod speed_randomizer;
 
 use std::{
@@ -19,6 +20,7 @@ use crate::{
         SpeedRandomizerBomConfig, config_modified_time, load_config, load_or_create_config,
         resolve_paths,
     },
+    html_status::HtmlStatusWriter,
     speed_randomizer::SpeedRandomizer,
 };
 
@@ -46,7 +48,8 @@ pub unsafe extern "C" fn DllMain(hmodule: usize, reason: u32) -> bool {
             return;
         };
 
-        let mut state = SpeedRandomizerBomState::new(config, paths.config_path);
+        let mut state = SpeedRandomizerBomState::new(config, paths.config_path, paths.html_path);
+        state.write_status();
         cs_task.run_recurring(
             move |_: &FD4TaskData| {
                 let _ = catch_unwind(AssertUnwindSafe(|| {
@@ -65,10 +68,11 @@ struct SpeedRandomizerBomState {
     config_last_modified: Option<SystemTime>,
     last_config_check: Instant,
     speed: SpeedRandomizer,
+    html: HtmlStatusWriter,
 }
 
 impl SpeedRandomizerBomState {
-    fn new(config: SpeedRandomizerBomConfig, config_path: PathBuf) -> Self {
+    fn new(config: SpeedRandomizerBomConfig, config_path: PathBuf, html_path: PathBuf) -> Self {
         let config_last_modified = config_modified_time(&config_path);
 
         Self {
@@ -76,12 +80,18 @@ impl SpeedRandomizerBomState {
             config_last_modified,
             last_config_check: Instant::now(),
             speed: SpeedRandomizer::new(&config.speed, INPUT_CHECK_INTERVAL),
+            html: HtmlStatusWriter::new(html_path),
         }
     }
 
     fn tick(&mut self) {
         self.reload_config_if_changed();
         self.speed.tick(INPUT_CHECK_INTERVAL);
+        self.write_status();
+    }
+
+    fn write_status(&mut self) {
+        self.html.write_if_due(self.speed.status());
     }
 
     fn reload_config_if_changed(&mut self) {
