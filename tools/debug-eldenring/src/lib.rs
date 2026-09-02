@@ -2,6 +2,8 @@ use std::ffi::c_void;
 use std::sync::Once;
 use std::time::Duration;
 
+use eldenring::dluid::DLUserInputManagerImpl;
+use eldenring::fd4::FD4PadManager;
 use hudhook::imgui::{Condition, Context, Ui, sys as imgui_sys};
 use hudhook::windows::Win32::Foundation::HINSTANCE;
 use hudhook::{ImguiRenderLoop, eject, hooks::dx12::ImguiDx12Hooks};
@@ -65,8 +67,14 @@ struct EldenRingDebugGui {
     sfx: StaticDebugger<CSSfxImp>,
     world_scene_draw_param: StaticDebugger<CSWorldSceneDrawParamManager>,
 
+    // Input
+    user_input_manager: StaticDebugger<DLUserInputManagerImpl>,
+    pad_manager: StaticDebugger<FD4PadManager>,
+    mouse_manager: StaticDebugger<CSMouseMan>,
+
     // Front ENd
     fe: StaticDebugger<CSFeManImp>,
+    menu_man: StaticDebugger<CSMenuManImp>,
 }
 
 impl EldenRingDebugGui {
@@ -178,8 +186,16 @@ unsafe fn render_live_reload(gui: &mut EldenRingDebugGui, ui: &mut Ui) {
                 item.end();
             }
 
+            if let Some(item) = ui.tab_item("Input") {
+                gui.user_input_manager.render_debug(ui);
+                gui.pad_manager.render_debug(ui);
+                gui.mouse_manager.render_debug(ui);
+                item.end();
+            }
+
             if let Some(item) = ui.tab_item("Front End") {
                 gui.fe.render_debug(ui);
+                gui.menu_man.render_debug(ui);
                 item.end();
             }
             if let Some(item) = ui.tab_item("Eject") {

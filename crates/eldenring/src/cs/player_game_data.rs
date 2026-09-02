@@ -6,7 +6,7 @@ use thiserror::Error;
 
 use crate::{
     ArrayWithHeader, DLList, DLVector,
-    cs::{ChrType, MultiplayRole},
+    cs::{ChrType, MultiplayRole, QuickmatchDesiredTeam},
     from_net::FNVector,
 };
 use shared::{IsEmpty, MaybeEmpty, NonEmptyIteratorExt, NonEmptyIteratorMutExt, OwnedPtr};
@@ -18,7 +18,7 @@ use crate::cs::{FieldInsHandle, GaitemHandle, ItemId, OptionalItemId};
 pub struct PlayerGameData {
     vftable: usize,
     /// Event id of this game data owner
-    pub character_event_id: u32,
+    pub character_event_id: i32,
     pub player_id: u32,
     pub current_hp: u32,
     pub current_max_hp: u32,
@@ -55,7 +55,7 @@ pub struct PlayerGameData {
     pub madness_resist: u32,
     pub pending_block_clear_bonus: f32,
     pub chr_type: ChrType,
-    character_name: [u16; 17],
+    pub character_name: [u16; 17],
     pub gender: u8,
     pub archetype: u8,
     pub vow_type: u8,
@@ -156,14 +156,15 @@ pub struct PlayerGameData {
     /// Vector of all visited play area IDs
     pub visited_areas: FNVector<u32>,
     pub mount_handle: FieldInsHandle,
-    unk958: [u8; 0x8],
+    unk958: FieldInsHandle,
+    unk560: u8,
     pub damage_negation_physical: i32,
     pub attack_rating: PlayerDataAttackRating,
     pub damage_negation_magic: i32,
-    unk980: f32,
     unk984: f32,
+    unk988: f32,
     pub max_equip_load: f32,
-    unk98c: u32,
+    unk990: u32,
     pub damage_negation_strike: i32,
     pub damage_negation_slash: i32,
     pub damage_negation_pierce: i32,
@@ -176,15 +177,15 @@ pub struct PlayerGameData {
     unused_gauge_list: [f32; 7],
     pub proc_status_timers: [f32; 7],
     pub proc_status_timer_max: [f32; 7],
-    unka54: u32,
+    unka58: u32,
     pub frontend_flags: PlayerGameDataFrontendFlags,
     pub sa_toughness_total: u32,
-    unka60: u32,
+    unka64: u32,
     pub berserker_kills: u8,
     pub berserker_kills_target: u8,
     pub berserker_target_reached: bool,
     pub quickmatch_kill_count: u8,
-    unka68: [u8; 0x4],
+    unka6c: [u8; 0x4],
     pub poise: f32,
     pub discovery: u32,
     pub effective_unlocked_magic_slots: u32,
@@ -193,31 +194,39 @@ pub struct PlayerGameData {
     menu_ref_special_effect_3: usize,
     pub is_using_festering_bloody_finger: bool,
     pub used_invasion_item_type: PlayerDataInvasionItemType,
-    unka92: [u8; 2],
+    unka9a: [u8; 2],
     pub packed_time_stamp: u32,
+    /// team type for quickmatch, WhiteSign (2) for allies.
     pub quick_match_team: u8,
-    unka99: [u8; 0x3],
-    unka9c: i32,
+    /// [0,1) range used to sample spawn locations in quickmatch.
+    pub quick_match_spawn_slot_fraction: f32,
     pub quick_match_duel_points: u16,
     pub quick_match_united_combat_points: u16,
     pub quick_match_spirit_ashes_points: u16,
     pub quickmatch_duel_rank: u8,
     pub quickmatch_united_combat_rank: u8,
     pub quickmatch_spirit_ashes_rank: u8,
-    pub unkaa9: bool,
-    unkaa: u8,
+    /// Whether this player is the lead player in quickmatch (player with the most points).
+    pub is_quick_match_lead: bool,
+    /// Whether this player is in [`HostInGame`] or [`GuestInGame`] state in quickmatch.
+    ///
+    /// [`HostInGame`]: crate::cs::CSQuickMatchingCtrlState::HostInGame
+    /// [`GuestInGame`]: crate::cs::CSQuickMatchingCtrlState::GuestInGame
+    pub is_quick_match_in_game: bool,
     pub is_quick_match_host: bool,
     pub quick_match_map_load_ready: bool,
-    pub quick_match_desired_team: u8,
-    unkaae: u8,
+    pub quick_match_desired_team: QuickmatchDesiredTeam,
+    unkab6: u8,
     /// Should sign cooldown be enabled?
     /// Each time your coop player dies and you have someone in your world
     /// you will get a cooldown depending on [crate::param::WHITE_SIGN_COOL_TIME_PARAM_ST] and level from [crate::cs::SosSignMan::white_sign_cool_time_param_id]
     pub sign_cooldown_enabled: bool,
-    unkab0: [u8; 0x2],
+    unkab8: [u8; 0x2],
     pub has_preorder_gesture: bool,
     pub has_preorder_sote_gesture: bool,
-    unkab4: [u8; 0x34],
+    pub host_scadutree_blessing: u8,
+    pub host_scaling_applied: bool,
+    unkab4: [u8; 0x32],
 }
 
 #[repr(u8)]
@@ -418,10 +427,13 @@ pub struct EquipGameData {
     pub equip_inventory_data: EquipInventoryData,
     pub equip_magic_data: OwnedPtr<EquipMagicData>,
     pub equip_item_data: EquipItemData,
-    equip_gesture_data: usize,
-    /// Tracker for the item replenishing from the chest
+    equip_gesture_data: Option<OwnedPtr<()>>,
+    /// Tracker for the item replenishing from the chest.
+    /// Only present in the main player's game data.
     pub item_replenish_state_tracker: Option<OwnedPtr<ItemReplenishStateTracker>>,
-    pub qm_item_backup_vector: OwnedPtr<DLVector<QMItemBackupVectorItem>>,
+    /// Tracker for the item restoration after quickmatch.
+    /// Only present in the main player's game data.
+    pub qm_item_backup_vector: Option<OwnedPtr<DLVector<QMItemBackupVectorItem>>>,
     pub equipment_entries: ChrAsmEquipEntries,
     pub physick_tears: [OptionalItemId; 2],
     pub extra_physick_tear: OptionalItemId,
