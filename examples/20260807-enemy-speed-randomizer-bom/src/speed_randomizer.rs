@@ -368,7 +368,13 @@ fn random_interval_ms(config: &EnemySpeedConfig, rng: &mut impl Rng) -> u64 {
 }
 
 fn is_enemy(chr_type: ChrType) -> bool {
-    chr_type == ChrType::Npc
+    chr_type == ChrType::Duelist
+        || chr_type == ChrType::Npc
+        || chr_type == ChrType::Unk7
+        || chr_type == ChrType::BloodstainGhost
+        || chr_type == ChrType::BloodyFinger
+        || chr_type == ChrType::BloodyFingerNpc
+        || chr_type == ChrType::RecusantNpc
 }
 
 fn beep_toggle(enabled: bool) {
