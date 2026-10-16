@@ -1098,6 +1098,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a89322df9ebe1c1578d689c92318e070967d1042b512afbe49518723f4e6d5cd"
 
 [[package]]
+name = "player-attribute-randomizer-bom"
+version = "0.14.0"
+dependencies = [
+ "eldenring",
+ "fromsoftware-shared",
+ "hudhook",
+ "rand",
+ "serde",
+ "toml",
+ "windows 0.61.3",
+]
+
+[[package]]
 name = "player-speed-randomizer-bom"
 version = "0.14.0"
 dependencies = [
