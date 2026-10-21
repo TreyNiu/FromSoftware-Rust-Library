@@ -171,10 +171,6 @@ fn draw_overlay(
     attribute_font: Option<OverlayFontId>,
     small_font: Option<OverlayFontId>,
 ) {
-    const ATTRIBUTE_SLOT_WIDTH: f32 = 96.0;
-    const SMALL_ATTRIBUTE_WIDTH: f32 = 22.0;
-    const COUNTDOWN_TEXT_WIDTH: f32 = 130.0;
-
     unsafe {
         (*hudhook::imgui::sys::igGetIO()).DisplayFramebufferScale =
             hudhook::imgui::sys::ImVec2 { x: 1.0, y: 1.0 };
@@ -194,8 +190,9 @@ fn draw_overlay(
     } else {
         0.0
     };
-    let right_width =
-        ATTRIBUTE_SLOT_WIDTH * scale + attribute_text_gap + SMALL_ATTRIBUTE_WIDTH * scale;
+    let right_width = (ONLY_LIMIT_SLOT_WIDTH + ATTRIBUTE_SLOT_WIDTH + SMALL_ATTRIBUTE_WIDTH)
+        * scale
+        + attribute_text_gap * 2.0;
     let window_width = left_width + right_width + padding_x * 2.0;
     let window_height = config.height.clamp(48.0, 400.0) * scale;
     let window_padding = ui.push_style_var(StyleVar::WindowPadding([12.0 * scale, 10.0 * scale]));
@@ -234,10 +231,24 @@ fn draw_overlay(
                 drop(countdown_font_token);
 
                 ui.next_column();
-                draw_attribute_panel(ui, status, attribute_font, small_font);
+                draw_attribute_panel(
+                    ui,
+                    status,
+                    attribute_font,
+                    small_font,
+                    scale,
+                    attribute_text_gap,
+                );
                 ui.columns(1, "##player_attribute_columns_end", false);
             } else {
-                draw_attribute_panel(ui, status, attribute_font, small_font);
+                draw_attribute_panel(
+                    ui,
+                    status,
+                    attribute_font,
+                    small_font,
+                    scale,
+                    attribute_text_gap,
+                );
             }
 
             ui.set_window_font_scale(1.0);
@@ -249,11 +260,18 @@ fn draw_overlay(
     window_padding.end();
 }
 
+const ATTRIBUTE_SLOT_WIDTH: f32 = 96.0;
+const ONLY_LIMIT_SLOT_WIDTH: f32 = 22.0;
+const SMALL_ATTRIBUTE_WIDTH: f32 = 22.0;
+const COUNTDOWN_TEXT_WIDTH: f32 = 130.0;
+
 fn draw_attribute_panel(
     ui: &Ui,
     status: AttributeStatus,
     attribute_font: Option<OverlayFontId>,
     small_font: Option<OverlayFontId>,
+    scale: f32,
+    attribute_text_gap: f32,
 ) {
     let label = status.attribute.map(DamageAttribute::label).unwrap_or("--");
     let color = status
@@ -265,25 +283,38 @@ fn draw_attribute_panel(
     let right_width = ui.content_region_avail()[0];
     let right_height = ui.content_region_avail()[1];
 
-    let attribute_font_token = attribute_font.map(|font| ui.push_font(font.0));
-    let attribute_size = ui.calc_text_size(label);
-    ui.set_cursor_pos([
-        right_origin[0],
-        right_origin[1] + ((right_height - attribute_size[1]) * 0.5).max(0.0),
-    ]);
-    ui.text_colored(color, label);
-    drop(attribute_font_token);
+    let only_limit_slot_width = ONLY_LIMIT_SLOT_WIDTH * scale;
+    let attribute_slot_width = ATTRIBUTE_SLOT_WIDTH * scale;
+    let small_attribute_width = SMALL_ATTRIBUTE_WIDTH * scale;
+    let attribute_slot_x = right_origin[0] + only_limit_slot_width + attribute_text_gap;
 
     let small_font_token = small_font.map(|font| ui.push_font(font.0));
     let small_size = ui.calc_text_size("属");
     let small_line_height = ui.text_line_height();
-    let small_x = right_origin[0] + right_width - small_size[0];
     let small_y = right_origin[1] + ((right_height - small_line_height * 2.0) * 0.5).max(0.0);
+    let only_limit_x = right_origin[0] + ((only_limit_slot_width - small_size[0]) * 0.5).max(0.0);
+    ui.set_cursor_pos([only_limit_x, small_y]);
+    ui.text_colored([1.0, 1.0, 1.0, 1.0], "仅");
+    ui.set_cursor_pos([only_limit_x, small_y + small_line_height]);
+    ui.text_colored([1.0, 1.0, 1.0, 1.0], "限");
+
+    let small_x = right_origin[0] + right_width - small_attribute_width;
     ui.set_cursor_pos([small_x, small_y]);
     ui.text_colored([1.0, 1.0, 1.0, 1.0], "属");
     ui.set_cursor_pos([small_x, small_y + small_line_height]);
     ui.text_colored([1.0, 1.0, 1.0, 1.0], "性");
     drop(small_font_token);
+
+    let attribute_font_token = attribute_font.map(|font| ui.push_font(font.0));
+    let attribute_size = ui.calc_text_size(label);
+    let attribute_x =
+        attribute_slot_x + ((attribute_slot_width - attribute_size[0]) * 0.5).max(0.0);
+    ui.set_cursor_pos([
+        attribute_x,
+        right_origin[1] + ((right_height - attribute_size[1]) * 0.5).max(0.0),
+    ]);
+    ui.text_colored(color, label);
+    drop(attribute_font_token);
 }
 
 fn format_countdown(countdown_ms: Option<u64>) -> String {
