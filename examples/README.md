@@ -42,3 +42,9 @@ Spawns bloodied poop at twice the scale at the players location whenever H is pr
 ![Asset spawned at players location after pressing keybind](img/example-mod-spawn-asset.png)
 
 </summary>
+
+## Resizer RS
+Rust port of the original Elden Resizer. It supports hot-reloaded INI settings, player/Torrent/spirit
+skeleton scaling, camera distance scaling, weapon dmypoly scaling, and `AtkParam_Pc` hit radius scaling.
+
+[Code](20261021-resizer-rs/src/lib.rs).

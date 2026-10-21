@@ -1,0 +1,22 @@
+[package]
+name = "resizer-rs"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+eldenring.workspace = true
+fromsoftware-shared.workspace = true
+pelite.workspace = true
+rust-ini = "0.21.3"
+windows = { workspace = true, features = [
+    "Win32_Foundation",
+    "Win32_System_LibraryLoader",
+    "Win32_System_Memory",
+] }
+
+[lib]
+name = "resizer_rs"
+crate-type = ["cdylib"]

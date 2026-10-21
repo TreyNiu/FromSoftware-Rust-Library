@@ -1291,6 +1291,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
 
 [[package]]
+name = "resizer-rs"
+version = "0.14.0"
+dependencies = [
+ "eldenring",
+ "fromsoftware-shared",
+ "pelite",
+ "rust-ini",
+ "windows 0.61.3",
+]
+
+[[package]]
 name = "resizer-stamina-add-on"
 version = "0.14.0"
 dependencies = [
@@ -1804,6 +1815,15 @@ name = "valuable"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba73ea9cf16a25df0c8caa16c51acb937d5712a8429db78a3ee29d5dcacd3a65"
+
+[[package]]
+name = "vertical-stretch"
+version = "0.14.0"
+dependencies = [
+ "eldenring",
+ "fromsoftware-shared",
+ "windows 0.61.3",
+]
 
 [[package]]
 name = "vtable-rs"

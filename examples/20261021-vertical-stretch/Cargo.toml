@@ -1,0 +1,16 @@
+[package]
+name = "vertical-stretch"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+fromsoftware-shared.workspace = true
+eldenring.workspace = true
+windows = { workspace = true, features = ["Win32_UI_Input_KeyboardAndMouse"] }
+
+[lib]
+name = "vertical_stretch"
+crate-type = ["cdylib"]
