@@ -27,6 +27,17 @@ pub struct ResizerConfig {
     pub summon_scale: f32,
     pub movement_influence: f32,
     pub no_fall_damage: bool,
+    /// Rust-only extension. Keeps native cloth physics enabled by default while scaled bones
+    /// continue to drive the garment. Set to true to reproduce the original Resizer workaround.
+    pub disable_cloth_physics: bool,
+    /// Enable dynamic character/debug scale updates. Hot-reloadable.
+    pub enable_character_scaling: bool,
+    /// Enable LockCamParam and AtkParam_Pc scaling. Hot-reloadable.
+    pub enable_param_scaling: bool,
+    /// Install the TAE camera VMT hook. Requires a restart after changing.
+    pub enable_camera_hook: bool,
+    /// Install the weapon dmypoly VMT hook. Requires a restart after changing.
+    pub enable_weapon_hook: bool,
     /// Rust-only extension. It can be set to false while debugging if the current game
     /// version has a different Havok skeleton layout.
     pub scale_bones: bool,
@@ -43,6 +54,11 @@ impl Default for ResizerConfig {
             summon_scale: 1.0,
             movement_influence: 1.0,
             no_fall_damage: false,
+            disable_cloth_physics: false,
+            enable_character_scaling: true,
+            enable_param_scaling: true,
+            enable_camera_hook: true,
+            enable_weapon_hook: true,
             scale_bones: true,
         }
     }
@@ -135,6 +151,11 @@ pub fn load_config(path: &Path) -> Option<ResizerConfig> {
             .unwrap_or(player_scale),
         movement_influence: parse_scale(get("movementInfluence")).unwrap_or(1.0),
         no_fall_damage: parse_no_fall_damage(get("noFallDamage"), player_scale),
+        disable_cloth_physics: parse_bool(get("disableClothPhysics")).unwrap_or(false),
+        enable_character_scaling: parse_bool(get("enableCharacterScaling")).unwrap_or(true),
+        enable_param_scaling: parse_bool(get("enableParamScaling")).unwrap_or(true),
+        enable_camera_hook: parse_bool(get("enableCameraHook")).unwrap_or(true),
+        enable_weapon_hook: parse_bool(get("enableWeaponHook")).unwrap_or(true),
         scale_bones: parse_bool(get("scaleBones")).unwrap_or(true),
     };
     config.sanitize();
@@ -224,11 +245,27 @@ movementInfluence = 100%
 ; true / false / auto. 'auto' enables at playerScale >= 200%.
 noFallDamage = auto
 
+; true = disable cloth physics, matching the original Resizer workaround.
+; false = keep native cloth running and scale the bones that drive the garment.
+; Start with moderate scale values when using false; this is a partial cloth solution.
+disableClothPhysics = {disable_cloth_physics}
+
+; Diagnostic switches. Hook changes require restarting the game.
+enableCharacterScaling = {enable_character_scaling}
+enableParamScaling = {enable_param_scaling}
+enableCameraHook = {enable_camera_hook}
+enableWeaponHook = {enable_weapon_hook}
+
 ; Rust extension: scale Havok bone lengths and thickness.
 ; Set to false to test only ChrCtrl debug scaling on a new game version.
 scaleBones = {scale_bones}
 "#,
         player = config.player_scale * 100.0,
+        disable_cloth_physics = config.disable_cloth_physics,
+        enable_character_scaling = config.enable_character_scaling,
+        enable_param_scaling = config.enable_param_scaling,
+        enable_camera_hook = config.enable_camera_hook,
+        enable_weapon_hook = config.enable_weapon_hook,
         scale_bones = config.scale_bones,
     );
     fs::write(path, text)
@@ -245,7 +282,7 @@ mod tests {
         let _ = fs::create_dir_all(&temp);
         fs::write(
             &path,
-            "[settings]\nplayerScale = 200%\ncameraScale = player\nweaponScale = auto\ntorrentScale = 50\nnoFallDamage = auto\n",
+            "[settings]\nplayerScale = 200%\ncameraScale = player\nweaponScale = auto\ntorrentScale = 50\nnoFallDamage = auto\ndisableClothPhysics = true\n",
         )
         .unwrap();
 
@@ -255,6 +292,7 @@ mod tests {
         assert!((config.weapon_scale - 2.0).abs() < f32::EPSILON);
         assert!((config.torrent_scale - 0.5).abs() < f32::EPSILON);
         assert!(config.no_fall_damage);
+        assert!(config.disable_cloth_physics);
 
         let _ = fs::remove_file(path);
         let _ = fs::remove_dir(temp);
@@ -271,6 +309,7 @@ mod tests {
         assert!((config.player_scale - 0.5).abs() < f32::EPSILON);
         assert!((config.weapon_scale - 1.0).abs() < f32::EPSILON);
         assert!(!config.no_fall_damage);
+        assert!(!config.disable_cloth_physics);
 
         let _ = fs::remove_file(path);
         let _ = fs::remove_dir(temp);

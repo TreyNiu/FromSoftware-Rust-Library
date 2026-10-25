@@ -1,6 +1,7 @@
 use std::{
     fs::OpenOptions,
     io::Write,
+    panic::{set_hook, take_hook},
     path::{Path, PathBuf},
     sync::{Mutex, OnceLock},
     time::{SystemTime, UNIX_EPOCH},
@@ -34,4 +35,12 @@ fn write(level: &str, message: &str) {
         .unwrap_or_default()
         .as_secs();
     let _ = writeln!(file, "[{elapsed}][{level}] {message}");
+}
+
+pub fn install_panic_hook() {
+    let previous = take_hook();
+    set_hook(Box::new(move |info| {
+        error(format!("panic: {info}"));
+        previous(info);
+    }));
 }
